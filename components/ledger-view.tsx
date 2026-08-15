@@ -50,7 +50,6 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 
 const today = () => new Date().toISOString().slice(0, 10)
 
-// 숫자 추출 및 천단위 콤마 포맷팅 헬퍼
 const formatNumberInput = (val: string) => {
   const nums = val.replace(/[^0-9]/g, '')
   return nums ? Number(nums).toLocaleString('ko-KR') : ''
@@ -118,7 +117,6 @@ export function LedgerView() {
     const partyName = form.party.trim()
     const memoText = form.memo.trim()
 
-    // 1. 장부 작성 내역 추가 (전체 거래 기록)
     addLedger({
       date: ledgerDate,
       party: partyName,
@@ -130,7 +128,6 @@ export function LedgerView() {
       memo: memoText,
     })
 
-    // 2. 지출이면서 과세 대상(부가세 발생)이거나 원천징수(3.3%) 대상인 경우 상세 지출 내역에 등록
     if (form.kind === 'expense') {
       const isTaxableOrWithholding = form.taxable || form.withholding
 
@@ -160,7 +157,6 @@ export function LedgerView() {
     [ledger],
   )
 
-  // 입력 내역 필터링 적용 (전체 / 매출 / 지출)
   const filteredSorted = useMemo(() => {
     if (filter === 'all') return sorted
     return sorted.filter((entry) => entry.kind === filter)
@@ -171,7 +167,6 @@ export function LedgerView() {
     [expenses],
   )
 
-  // CSV 다운로드 처리 함수 (필터링된 목록 기준)
   const handleDownloadCsv = () => {
     if (filteredSorted.length === 0) return
 
@@ -212,17 +207,17 @@ export function LedgerView() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-        <Card className="h-fit lg:sticky lg:top-32">
-          <CardHeader>
+    <div className="flex flex-col gap-6 w-full max-w-full overflow-hidden">
+      <div className="grid gap-6 lg:grid-cols-[380px_1fr] items-start w-full min-w-0">
+        <Card className="w-full min-w-0 h-fit lg:sticky lg:top-32">
+          <CardHeader className="p-4 sm:p-6">
             <CardTitle>매출 / 지출 입력</CardTitle>
             <CardDescription>
               등록하면 대시보드 숫자에 즉시 반영됩니다.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-full min-w-0">
               <div className="grid grid-cols-2 gap-2">
                 <KindButton
                   active={form.kind === 'sale'}
@@ -246,7 +241,7 @@ export function LedgerView() {
                   required
                   value={form.date}
                   onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                  className="input"
+                  className="input w-full min-w-0"
                 />
               </Field>
 
@@ -257,11 +252,10 @@ export function LedgerView() {
                   placeholder="예: 신성기공"
                   value={form.party}
                   onChange={(e) => setForm((f) => ({ ...f, party: e.target.value }))}
-                  className="input"
+                  className="input w-full min-w-0"
                 />
               </Field>
 
-              {/* 지출 선택 시 카테고리 옵션 */}
               {form.kind === 'expense' && (
                 <Field label="지출 카테고리">
                   <select
@@ -269,7 +263,7 @@ export function LedgerView() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, category: e.target.value as ExpenseCategory }))
                     }
-                    className="input"
+                    className="input w-full min-w-0"
                   >
                     {EXPENSE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
@@ -286,7 +280,7 @@ export function LedgerView() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, paymentMethod: e.target.value as PaymentMethod }))
                   }
-                  className="input"
+                  className="input w-full min-w-0"
                 >
                   {PAYMENT_METHODS.map((m) => (
                     <option key={m.value} value={m.value}>
@@ -305,12 +299,12 @@ export function LedgerView() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, amount: formatNumberInput(e.target.value) }))
                   }
-                  className="input text-right tabular-nums"
+                  className="input text-right tabular-nums w-full min-w-0"
                 />
               </Field>
 
               <Field label="부가세 처리">
-                <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted/50 p-1">
+                <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted/50 p-1 w-full min-w-0">
                   {VAT_MODES.map((m) => {
                     const active = vatModeOf(form) === m.value
                     return (
@@ -318,7 +312,7 @@ export function LedgerView() {
                         key={m.value}
                         type="button"
                         onClick={() => setForm((f) => ({ ...f, ...applyVatMode(m.value) }))}
-                        className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                        className={`rounded-md px-1 py-1.5 text-[11px] sm:text-xs font-medium transition-colors truncate ${
                           active
                             ? 'bg-background text-foreground shadow-sm'
                             : 'text-muted-foreground hover:text-foreground'
@@ -334,24 +328,23 @@ export function LedgerView() {
                 </p>
               </Field>
 
-              {/* 지출 선택 시 원천징수 대상 여부 선택 */}
               {form.kind === 'expense' && (
-                <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-2.5 text-xs font-medium cursor-pointer hover:bg-muted/40">
+                <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-2.5 text-xs font-medium cursor-pointer hover:bg-muted/40 w-full min-w-0">
                   <input
                     type="checkbox"
                     checked={form.withholding}
                     onChange={(e) => setForm((f) => ({ ...f, withholding: e.target.checked }))}
-                    className="size-4 accent-primary"
+                    className="size-4 accent-primary shrink-0"
                   />
-                  <span>원천징수(3.3%) 대상 지출 (인건비/프리랜서 등)</span>
+                  <span className="truncate">원천징수(3.3%) 대상 지출 (인건비/프리랜서 등)</span>
                 </label>
               )}
 
               {parsedAmount > 0 && (
-                <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                  <div className="flex justify-between">
-                    <span>공급가액</span>
-                    <span className="tabular-nums text-foreground">
+                <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground w-full min-w-0">
+                  <div className="flex justify-between gap-2">
+                    <span className="shrink-0">공급가액</span>
+                    <span className="tabular-nums text-foreground truncate">
                       {formatWon(
                         !form.taxable
                           ? parsedAmount
@@ -361,9 +354,9 @@ export function LedgerView() {
                       )}
                     </span>
                   </div>
-                  <div className="mt-1 flex justify-between">
-                    <span>부가세 (10%)</span>
-                    <span className="tabular-nums text-foreground">
+                  <div className="mt-1 flex justify-between gap-2">
+                    <span className="shrink-0">부가세 (10%)</span>
+                    <span className="tabular-nums text-foreground truncate">
                       {!form.taxable
                         ? '비과세'
                         : formatWon(
@@ -382,26 +375,25 @@ export function LedgerView() {
                   placeholder="선택 입력"
                   value={form.memo}
                   onChange={(e) => setForm((f) => ({ ...f, memo: e.target.value }))}
-                  className="input resize-none"
+                  className="input resize-none w-full min-w-0"
                 />
               </Field>
 
-              <Button type="submit" disabled={!canSubmit} className="gap-2">
+              <Button type="submit" disabled={!canSubmit} className="gap-2 w-full">
                 <Plus className="size-4" /> 등록하기
               </Button>
             </form>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-4">
+        <Card className="w-full min-w-0">
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 pb-4">
             <div>
               <CardTitle>입력 내역</CardTitle>
               <CardDescription>총 {filteredSorted.length}건</CardDescription>
             </div>
-            <div className="flex items-center gap-3">
-              {/* 전체 / 매출 / 지출 필터 탭 */}
-              <div className="grid grid-cols-3 rounded-lg bg-muted/50 p-1">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-start">
+              <div className="grid grid-cols-3 rounded-lg bg-muted/50 p-1 min-w-[150px]">
                 {(
                   [
                     { value: 'all', label: '전체' },
@@ -413,7 +405,7 @@ export function LedgerView() {
                     key={tab.value}
                     type="button"
                     onClick={() => setFilter(tab.value)}
-                    className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                    className={`rounded-md px-2 py-1 text-xs font-medium transition-colors text-center ${
                       filter === tab.value
                         ? 'bg-background text-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
@@ -429,19 +421,19 @@ export function LedgerView() {
                 size="sm"
                 onClick={handleDownloadCsv}
                 disabled={filteredSorted.length === 0}
-                className="gap-1.5 shrink-0"
+                className="gap-1.5 shrink-0 text-xs px-2.5 h-8"
               >
-                <Download className="size-4" /> CSV 다운로드
+                <Download className="size-3.5" /> CSV 다운로드
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
             {filteredSorted.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">
                 아직 입력한 내역이 없습니다.
               </p>
             ) : (
-              <ul className="flex flex-col divide-y divide-border">
+              <ul className="flex flex-col divide-y divide-border w-full min-w-0">
                 {filteredSorted.map((entry) => (
                   <LedgerRow key={entry.id} entry={entry} />
                 ))}
@@ -451,20 +443,20 @@ export function LedgerView() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="w-full min-w-0">
+        <CardHeader className="p-4 sm:p-6">
           <CardTitle>상세 지출 내역 (원천징수 · 매입세액 대상)</CardTitle>
           <CardDescription>
             총 {sortedExpenses.length}건 · 대시보드의 총 지출·매입세액·원천징수에 반영됩니다.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
           {sortedExpenses.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">
               등록된 지출이 없습니다.
             </p>
           ) : (
-            <ul className="flex flex-col divide-y divide-border">
+            <ul className="flex flex-col divide-y divide-border w-full min-w-0">
               {sortedExpenses.map((expense) => (
                 <ExpenseRow key={expense.id} expense={expense} />
               ))}
@@ -512,20 +504,20 @@ function ExpenseRow({ expense }: { expense: Expense }) {
       setEditing(false)
     }
     return (
-      <li className="flex flex-col gap-3 py-4">
-        <div className="grid gap-2 sm:grid-cols-2">
+      <li className="flex flex-col gap-3 py-4 w-full min-w-0">
+        <div className="grid gap-2 sm:grid-cols-2 w-full min-w-0">
           <input
             type="date"
             value={draft.date}
             onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
-            className="input"
+            className="input w-full min-w-0"
           />
           <select
             value={draft.category}
             onChange={(e) =>
               setDraft((d) => ({ ...d, category: e.target.value as ExpenseCategory }))
             }
-            className="input"
+            className="input w-full min-w-0"
           >
             {EXPENSE_CATEGORIES.map((c) => (
               <option key={c} value={c}>
@@ -537,7 +529,7 @@ function ExpenseRow({ expense }: { expense: Expense }) {
             type="text"
             value={draft.vendor}
             onChange={(e) => setDraft((d) => ({ ...d, vendor: e.target.value }))}
-            className="input"
+            className="input w-full min-w-0"
             placeholder="공급자"
           />
           <input
@@ -546,14 +538,14 @@ function ExpenseRow({ expense }: { expense: Expense }) {
             onChange={(e) =>
               setDraft((d) => ({ ...d, supplyAmount: formatNumberInput(e.target.value) }))
             }
-            className="input text-right tabular-nums"
+            className="input text-right tabular-nums w-full min-w-0"
             placeholder="공급가액"
           />
           <input
             type="text"
             value={draft.description}
             onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-            className="input sm:col-span-2"
+            className="input sm:col-span-2 w-full min-w-0"
             placeholder="내용"
           />
           <label className="flex items-center gap-2 text-sm sm:col-span-2 cursor-pointer">
@@ -561,7 +553,7 @@ function ExpenseRow({ expense }: { expense: Expense }) {
               type="checkbox"
               checked={draft.withholding}
               onChange={(e) => setDraft((d) => ({ ...d, withholding: e.target.checked }))}
-              className="size-4 accent-primary"
+              className="size-4 accent-primary shrink-0"
             />
             원천징수(3.3%) 대상
           </label>
@@ -579,46 +571,46 @@ function ExpenseRow({ expense }: { expense: Expense }) {
   }
 
   return (
-    <li className="flex items-center gap-3 py-3.5">
+    <li className="flex items-center gap-2 sm:gap-3 py-3.5 w-full min-w-0">
       <span className="inline-flex shrink-0 items-center rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
         {expense.category}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
           <span className="truncate text-sm font-medium">{expense.vendor}</span>
-          <span className="shrink-0 text-xs text-muted-foreground">{expense.date}</span>
+          <span className="shrink-0 text-[11px] sm:text-xs text-muted-foreground">{expense.date}</span>
           {expense.withholding && (
             <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
               원천징수
             </span>
           )}
         </div>
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="truncate text-xs text-muted-foreground mt-0.5">
           {expense.description}
           {' · 부가세 '}
           {formatWon(expenseVat(expense))}
           {expense.withholding && ` · 원천징수 ${formatWon(expenseWithholding(expense))}`}
         </p>
       </div>
-      <span className="shrink-0 text-sm font-semibold tabular-nums text-destructive">
+      <span className="shrink-0 text-xs sm:text-sm font-semibold tabular-nums text-destructive">
         -{formatWon(expense.supplyAmount)}
       </span>
-      <div className="flex shrink-0 gap-1">
+      <div className="flex shrink-0 gap-0.5 sm:gap-1">
         <button
           type="button"
           onClick={() => setEditing(true)}
           aria-label="수정"
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="rounded-md p-1 sm:p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
-          <Pencil className="size-4" />
+          <Pencil className="size-3.5 sm:size-4" />
         </button>
         <button
           type="button"
           onClick={() => deleteExpense(expense.id)}
           aria-label="삭제"
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="rounded-md p-1 sm:p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
         >
-          <Trash2 className="size-4" />
+          <Trash2 className="size-3.5 sm:size-4" />
         </button>
       </div>
     </li>
@@ -660,12 +652,12 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
       setEditing(false)
     }
     return (
-      <li className="flex flex-col gap-3 py-4">
-        <div className="grid gap-2 sm:grid-cols-2">
+      <li className="flex flex-col gap-3 py-4 w-full min-w-0">
+        <div className="grid gap-2 sm:grid-cols-2 w-full min-w-0">
           <select
             value={draft.kind}
             onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.value as LedgerKind }))}
-            className="input"
+            className="input w-full min-w-0"
           >
             <option value="sale">매출</option>
             <option value="expense">지출</option>
@@ -674,13 +666,13 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
             type="date"
             value={draft.date}
             onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
-            className="input"
+            className="input w-full min-w-0"
           />
           <input
             type="text"
             value={draft.party}
             onChange={(e) => setDraft((d) => ({ ...d, party: e.target.value }))}
-            className="input"
+            className="input w-full min-w-0"
             placeholder="거래처명"
           />
           <select
@@ -688,7 +680,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
             onChange={(e) =>
               setDraft((d) => ({ ...d, paymentMethod: e.target.value as PaymentMethod }))
             }
-            className="input"
+            className="input w-full min-w-0"
           >
             {PAYMENT_METHODS.map((m) => (
               <option key={m.value} value={m.value}>
@@ -702,17 +694,17 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
             onChange={(e) =>
               setDraft((d) => ({ ...d, amount: formatNumberInput(e.target.value) }))
             }
-            className="input text-right tabular-nums sm:col-span-2"
+            className="input text-right tabular-nums sm:col-span-2 w-full min-w-0"
             placeholder="금액"
           />
           <input
             type="text"
             value={draft.memo}
             onChange={(e) => setDraft((d) => ({ ...d, memo: e.target.value }))}
-            className="input sm:col-span-2"
+            className="input sm:col-span-2 w-full min-w-0"
             placeholder="메모"
           />
-          <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted/50 p-1 sm:col-span-2">
+          <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted/50 p-1 sm:col-span-2 w-full min-w-0">
             {VAT_MODES.map((m) => {
               const active = vatModeOf(draft) === m.value
               return (
@@ -720,7 +712,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
                   key={m.value}
                   type="button"
                   onClick={() => setDraft((d) => ({ ...d, ...applyVatMode(m.value) }))}
-                  className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                  className={`rounded-md px-1 py-1.5 text-[11px] sm:text-xs font-medium transition-colors truncate ${
                     active
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
@@ -745,7 +737,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
   }
 
   return (
-    <li className="flex items-center gap-3 py-3.5">
+    <li className="flex items-center gap-2 sm:gap-3 py-3.5 w-full min-w-0">
       <span
         className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
           isSale
@@ -756,9 +748,9 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
         {LEDGER_KIND_LABELS[entry.kind]}
       </span>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap sm:flex-nowrap">
           <span className="truncate text-sm font-medium">{entry.party}</span>
-          <span className="shrink-0 text-xs text-muted-foreground">{entry.date}</span>
+          <span className="shrink-0 text-[11px] sm:text-xs text-muted-foreground">{entry.date}</span>
           <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {PAYMENT_METHOD_LABELS[entry.paymentMethod || 'transfer']}
           </span>
@@ -768,7 +760,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
             </span>
           )}
         </div>
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="truncate text-xs text-muted-foreground mt-0.5">
           {entry.memo || (isSale ? '매출 입력' : '지출 입력')}
           {' · 공급가 '}
           {formatWon(ledgerSupply(entry))}
@@ -776,29 +768,29 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
         </p>
       </div>
       <span
-        className={`shrink-0 text-sm font-semibold tabular-nums ${
+        className={`shrink-0 text-xs sm:text-sm font-semibold tabular-nums ${
           isSale ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'
         }`}
       >
         {isSale ? '+' : '-'}
         {formatWon(ledgerTotal(entry))}
       </span>
-      <div className="flex shrink-0 gap-1">
+      <div className="flex shrink-0 gap-0.5 sm:gap-1">
         <button
           type="button"
           onClick={() => setEditing(true)}
           aria-label="수정"
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="rounded-md p-1 sm:p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
-          <Pencil className="size-4" />
+          <Pencil className="size-3.5 sm:size-4" />
         </button>
         <button
           type="button"
           onClick={() => deleteLedger(entry.id)}
           aria-label="삭제"
-          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="rounded-md p-1 sm:p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
         >
-          <Trash2 className="size-4" />
+          <Trash2 className="size-3.5 sm:size-4" />
         </button>
       </div>
     </li>
@@ -807,7 +799,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1.5">
+    <label className="flex flex-col gap-1.5 w-full min-w-0">
       <span className="text-sm font-medium">{label}</span>
       {children}
     </label>
@@ -833,7 +825,7 @@ function KindButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${
+      className={`rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors w-full ${
         active
           ? activeClass
           : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
