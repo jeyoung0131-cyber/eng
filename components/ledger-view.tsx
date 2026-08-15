@@ -107,7 +107,7 @@ export function LedgerView() {
     const partyName = form.party.trim()
     const memoText = form.memo.trim()
 
-    // 1. 장부 작성 내역 추가
+    // 1. 장부 작성 내역 추가 (전체 거래 기록)
     addLedger({
       date: ledgerDate,
       party: partyName,
@@ -119,22 +119,26 @@ export function LedgerView() {
       memo: memoText,
     })
 
-    // 2. 지출일 경우, 상세 지출 내역(Expense)에도 자동 등록 (대시보드 원천징수/매입세액 연동)
+    // 2. 지출이면서 과세 대상(부가세 발생)이거나 원천징수(3.3%) 대상인 경우에만 상세 지출 내역에 등록
     if (form.kind === 'expense') {
-      const supplyAmt = !form.taxable
-        ? parsedAmount
-        : form.vatIncluded
-          ? Math.round(parsedAmount / 1.1)
-          : parsedAmount
+      const isTaxableOrWithholding = form.taxable || form.withholding
 
-      addExpense({
-        date: ledgerDate,
-        vendor: partyName,
-        category: form.category,
-        supplyAmount: supplyAmt,
-        description: memoText || `${form.category} 지출`,
-        withholding: form.withholding,
-      })
+      if (isTaxableOrWithholding) {
+        const supplyAmt = !form.taxable
+          ? parsedAmount
+          : form.vatIncluded
+            ? Math.round(parsedAmount / 1.1)
+            : parsedAmount
+
+        addExpense({
+          date: ledgerDate,
+          vendor: partyName,
+          category: form.category,
+          supplyAmount: supplyAmt,
+          description: memoText || `${form.category} 지출`,
+          withholding: form.withholding,
+        })
+      }
     }
 
     setForm(emptyForm())
@@ -655,7 +659,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
                 >
                   {m.label}
                 </button>
-              );
+              )
             })}
           </div>
         </div>
