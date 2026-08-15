@@ -87,6 +87,18 @@ export function ledgerTotal(e: LedgerEntry) {
   return ledgerSupply(e) + ledgerVat(e)
 }
 
+/** 부가세 실제 납부 지출 항목인지 감지하는 판별 함수 */
+export function isVatPaymentEntry(e: LedgerEntry) {
+  if (e.kind !== 'expense') return false
+  const text = `${e.party} ${e.memo}`.toLowerCase()
+  return (
+    text.includes('부가세') ||
+    text.includes('부가가치세') ||
+    text.includes('국세청') ||
+    text.includes('세무서')
+  )
+}
+
 // 지출 카테고리 타입 (기타 포함 확장)
 export type ExpenseCategory =
   | '원자재'
@@ -156,6 +168,7 @@ export type DashboardTotals = {
   salesVat: number // 매출세액
   purchaseVat: number // 매입세액
   vatPayable: number // 납부예상 부가세
+  vatPaid: number // 장부로 실제 납부 처리된 부가세액
   withholding: number // 원천징수 합계
   outstanding: number // 미수금 합계
   received: number // 총 입금액(부가세 포함)
@@ -187,23 +200,31 @@ export function computeTotals(
   // 4. 총 통장 입금액 (통장에 찍힌 실 입금액: 15,400,000원)
   const received = ledgerSales.reduce((s, e) => s + ledgerTotal(e), 0)
 
-  // 5. 총 지출 공급가액 (14,875,160원)
+  // 5. 총 지출 공급가액
   const expensesTotal =
     expenses.reduce((s, e) => s + e.supplyAmount, 0) +
     ledgerExpenses.reduce((s, e) => s + ledgerSupply(e), 0)
 
-  // 6. 매입 세액
+  // 6. 매입 세액 (부가세 납부 항목 제외)
   const purchaseVat =
     expenses.reduce((s, e) => s + expenseVat(e), 0) +
-    ledgerExpenses.reduce((s, e) => s + ledgerVat(e), 0)
+    ledgerExpenses
+      .filter((e) => !isVatPaymentEntry(e))
+      .reduce((s, e) => s + ledgerVat(e), 0)
 
   // 7. 원천징수 합계
   const withholding = expenses.reduce((s, e) => s + expenseWithholding(e), 0)
 
-  // 8. 납부 예상 부가세
-  const vatPayable = salesVat - purchaseVat
+  // 8. 장부에 '부가세 납부'로 입력된 실제 납부액 총합
+  const vatPaid = ledgerExpenses
+    .filter((e) => isVatPaymentEntry(e))
+    .reduce((s, e) => s + e.amount, 0)
 
-  // 9. 실보유 순자금 (통장 입금액 15,400,000원 - 지출 14,875,160원 = 524,840원)
+  // 9. 납부 예상 부가세 = (매출세액 - 매입세액) - 납부완료액
+  const rawVatPayable = salesVat - purchaseVat
+  const vatPayable = Math.max(0, rawVatPayable - vatPaid)
+
+  // 10. 실보유 순자금 (통장 입금액 - 총지출)
   const netCash = received - expensesTotal
 
   return {
@@ -212,6 +233,7 @@ export function computeTotals(
     salesVat,
     purchaseVat,
     vatPayable,
+    vatPaid,
     withholding,
     outstanding,
     received,
