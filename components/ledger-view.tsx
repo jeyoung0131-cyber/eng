@@ -43,9 +43,11 @@ type FormState = {
   date: string
   party: string
   kind: LedgerKind
+  category: ExpenseCategory
   amount: string
   vatIncluded: boolean
   taxable: boolean
+  withholding: boolean
   paymentMethod: PaymentMethod
   memo: string
 }
@@ -54,9 +56,11 @@ const emptyForm = (): FormState => ({
   date: today(),
   party: '',
   kind: 'sale',
+  category: '경비',
   amount: '',
   vatIncluded: true,
   taxable: true,
+  withholding: false,
   paymentMethod: 'transfer',
   memo: '',
 })
@@ -78,7 +82,7 @@ const VAT_MODES: { value: VatMode; label: string }[] = [
 ]
 
 export function LedgerView() {
-  const { ledger, addLedger, expenses } = useFinance()
+  const { ledger, addLedger, addExpense, expenses } = useFinance()
   const [form, setForm] = useState<FormState>(emptyForm)
 
   const parsedAmount = Number(form.amount.replace(/[^0-9]/g, '')) || 0
@@ -87,16 +91,41 @@ export function LedgerView() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
+
+    const ledgerDate = form.date || today()
+    const partyName = form.party.trim()
+    const memoText = form.memo.trim()
+
+    // 1. 장부 작성 내역 추가
     addLedger({
-      date: form.date || today(),
-      party: form.party.trim(),
+      date: ledgerDate,
+      party: partyName,
       kind: form.kind,
       amount: parsedAmount,
       vatIncluded: form.vatIncluded,
       taxable: form.taxable,
       paymentMethod: form.paymentMethod,
-      memo: form.memo.trim(),
+      memo: memoText,
     })
+
+    // 2. 지출일 경우, 상세 지출 내역(Expense)에도 자동 등록 (대시보드 원천징수/매입세액 연동)
+    if (form.kind === 'expense') {
+      const supplyAmt = !form.taxable
+        ? parsedAmount
+        : form.vatIncluded
+          ? Math.round(parsedAmount / 1.1)
+          : parsedAmount
+
+      addExpense({
+        date: ledgerDate,
+        vendor: partyName,
+        category: form.category,
+        supplyAmount: supplyAmt,
+        description: memoText || `${form.category} 지출`,
+        withholding: form.withholding,
+      })
+    }
+
     setForm(emptyForm())
   }
 
@@ -110,7 +139,7 @@ export function LedgerView() {
     [expenses],
   )
 
-  // CSV 다운로드 처리 함수 (결제수단 열 추가)
+  // CSV 다운로드 처리 함수
   const handleDownloadCsv = () => {
     if (sorted.length === 0) return
 
@@ -190,6 +219,23 @@ export function LedgerView() {
                 />
               </Field>
 
+              {/* 지출 선택 시 추가되는 카테고리 옵션 */}
+              {form.kind === 'expense' && (
+                <Field label="지출 카테고리">
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as ExpenseCategory }))}
+                    className="input"
+                  >
+                    {EXPENSE_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
+
               <Field label="결제 / 입금 수단">
                 <select
                   value={form.paymentMethod}
@@ -239,6 +285,19 @@ export function LedgerView() {
                   개인 이체·단순 출금 등 부가세가 없는 거래는 &lsquo;비과세&rsquo;를 선택하세요.
                 </p>
               </Field>
+
+              {/* 지출 선택 시 원천징수 대상 여부 선택 */}
+              {form.kind === 'expense' && (
+                <label className="flex items-center gap-2 rounded-lg border border-border bg-muted/20 p-2.5 text-xs font-medium cursor-pointer hover:bg-muted/40">
+                  <input
+                    type="checkbox"
+                    checked={form.withholding}
+                    onChange={(e) => setForm((f) => ({ ...f, withholding: e.target.checked }))}
+                    className="size-4 accent-primary"
+                  />
+                  <span>원천징수(3.3%) 대상 지출 (인건비/프리랜서 등)</span>
+                </label>
+              )}
 
               {parsedAmount > 0 && (
                 <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
@@ -422,7 +481,7 @@ function ExpenseRow({ expense }: { expense: Expense }) {
               type="checkbox"
               checked={draft.withholding}
               onChange={(e) => setDraft((d) => ({ ...d, withholding: e.target.checked }))}
-              className="size-4 accent-[var(--primary)]"
+              className="size-4 accent-primary"
             />
             원천징수(3.3%) 대상
           </label>
@@ -493,9 +552,11 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
     date: entry.date,
     party: entry.party,
     kind: entry.kind,
+    category: '경비',
     amount: String(entry.amount),
     vatIncluded: entry.vatIncluded,
     taxable: entry.taxable !== false,
+    withholding: false,
     paymentMethod: entry.paymentMethod || 'transfer',
     memo: entry.memo,
   })
@@ -583,7 +644,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
                 >
                   {m.label}
                 </button>
-              );
+              )
             })}
           </div>
         </div>
