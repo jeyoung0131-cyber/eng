@@ -50,6 +50,14 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 
 const today = () => new Date().toISOString().slice(0, 10)
 
+// 숫자 추출 및 천단위 콤마 포맷팅 헬퍼
+const formatNumberInput = (val: string) => {
+  const nums = val.replace(/[^0-9]/g, '')
+  return nums ? Number(nums).toLocaleString('ko-KR') : ''
+}
+
+const parseAmount = (val: string) => Number(val.replace(/[^0-9]/g, '')) || 0
+
 type FormState = {
   date: string
   party: string
@@ -92,11 +100,14 @@ const VAT_MODES: { value: VatMode; label: string }[] = [
   { value: 'exempt', label: '비과세' },
 ]
 
+type LedgerFilter = 'all' | 'sale' | 'expense'
+
 export function LedgerView() {
   const { ledger, addLedger, addExpense, expenses } = useFinance()
   const [form, setForm] = useState<FormState>(emptyForm)
+  const [filter, setFilter] = useState<LedgerFilter>('all')
 
-  const parsedAmount = Number(form.amount.replace(/[^0-9]/g, '')) || 0
+  const parsedAmount = parseAmount(form.amount)
   const canSubmit = form.party.trim().length > 0 && parsedAmount > 0
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -119,7 +130,7 @@ export function LedgerView() {
       memo: memoText,
     })
 
-    // 2. 지출이면서 과세 대상(부가세 발생)이거나 원천징수(3.3%) 대상인 경우에만 상세 지출 내역에 등록
+    // 2. 지출이면서 과세 대상(부가세 발생)이거나 원천징수(3.3%) 대상인 경우 상세 지출 내역에 등록
     if (form.kind === 'expense') {
       const isTaxableOrWithholding = form.taxable || form.withholding
 
@@ -149,18 +160,34 @@ export function LedgerView() {
     [ledger],
   )
 
+  // 입력 내역 필터링 적용 (전체 / 매출 / 지출)
+  const filteredSorted = useMemo(() => {
+    if (filter === 'all') return sorted
+    return sorted.filter((entry) => entry.kind === filter)
+  }, [sorted, filter])
+
   const sortedExpenses = useMemo(
     () => [...expenses].sort((a, b) => b.date.localeCompare(a.date)),
     [expenses],
   )
 
-  // CSV 다운로드 처리 함수
+  // CSV 다운로드 처리 함수 (필터링된 목록 기준)
   const handleDownloadCsv = () => {
-    if (sorted.length === 0) return
+    if (filteredSorted.length === 0) return
 
-    const headers = ['구분', '일자', '거래처명', '결제수단', '공급가액', '부가세', '합계금액', '비과세여부', '메모']
+    const headers = [
+      '구분',
+      '일자',
+      '거래처명',
+      '결제수단',
+      '공급가액',
+      '부가세',
+      '합계금액',
+      '비과세여부',
+      '메모',
+    ]
 
-    const rows = sorted.map((entry) => [
+    const rows = filteredSorted.map((entry) => [
       LEDGER_KIND_LABELS[entry.kind],
       entry.date,
       `"${(entry.party || '').replace(/"/g, '""')}"`,
@@ -234,12 +261,14 @@ export function LedgerView() {
                 />
               </Field>
 
-              {/* 지출 선택 시 추가되는 카테고리 옵션 */}
+              {/* 지출 선택 시 카테고리 옵션 */}
               {form.kind === 'expense' && (
                 <Field label="지출 카테고리">
                   <select
                     value={form.category}
-                    onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as ExpenseCategory }))}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, category: e.target.value as ExpenseCategory }))
+                    }
                     className="input"
                   >
                     {EXPENSE_CATEGORIES.map((c) => (
@@ -254,7 +283,9 @@ export function LedgerView() {
               <Field label="결제 / 입금 수단">
                 <select
                   value={form.paymentMethod}
-                  onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value as PaymentMethod }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, paymentMethod: e.target.value as PaymentMethod }))
+                  }
                   className="input"
                 >
                   {PAYMENT_METHODS.map((m) => (
@@ -270,8 +301,10 @@ export function LedgerView() {
                   inputMode="numeric"
                   required
                   placeholder="0"
-                  value={form.amount ? Number(form.amount.replace(/[^0-9]/g, '')).toLocaleString('ko-KR') : ''}
-                  onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                  value={form.amount}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, amount: formatNumberInput(e.target.value) }))
+                  }
                   className="input text-right tabular-nums"
                 />
               </Field>
@@ -353,37 +386,63 @@ export function LedgerView() {
                 />
               </Field>
 
-              <Button type="submit" disabled={!canSubmit} data-icon="inline-start">
-                <Plus /> 등록하기
+              <Button type="submit" disabled={!canSubmit} className="gap-2">
+                <Plus className="size-4" /> 등록하기
               </Button>
             </form>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-4">
             <div>
               <CardTitle>입력 내역</CardTitle>
-              <CardDescription>총 {sorted.length}건</CardDescription>
+              <CardDescription>총 {filteredSorted.length}건</CardDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadCsv}
-              disabled={sorted.length === 0}
-              className="gap-1.5"
-            >
-              <Download className="size-4" /> CSV 다운로드
-            </Button>
+            <div className="flex items-center gap-3">
+              {/* 전체 / 매출 / 지출 필터 탭 */}
+              <div className="grid grid-cols-3 rounded-lg bg-muted/50 p-1">
+                {(
+                  [
+                    { value: 'all', label: '전체' },
+                    { value: 'sale', label: '매출' },
+                    { value: 'expense', label: '지출' },
+                  ] as const
+                ).map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    onClick={() => setFilter(tab.value)}
+                    className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                      filter === tab.value
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadCsv}
+                disabled={filteredSorted.length === 0}
+                className="gap-1.5 shrink-0"
+              >
+                <Download className="size-4" /> CSV 다운로드
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            {sorted.length === 0 ? (
+            {filteredSorted.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">
                 아직 입력한 내역이 없습니다.
               </p>
             ) : (
               <ul className="flex flex-col divide-y divide-border">
-                {sorted.map((entry) => (
+                {filteredSorted.map((entry) => (
                   <LedgerRow key={entry.id} entry={entry} />
                 ))}
               </ul>
@@ -434,12 +493,12 @@ function ExpenseRow({ expense }: { expense: Expense }) {
     vendor: expense.vendor,
     description: expense.description,
     category: expense.category,
-    supplyAmount: String(expense.supplyAmount),
+    supplyAmount: Number(expense.supplyAmount).toLocaleString('ko-KR'),
     withholding: expense.withholding,
   })
 
   if (editing) {
-    const parsed = Number(draft.supplyAmount.replace(/[^0-9]/g, '')) || 0
+    const parsed = parseAmount(draft.supplyAmount)
     const save = () => {
       if (!draft.vendor.trim() || parsed <= 0) return
       updateExpense(expense.id, {
@@ -463,11 +522,15 @@ function ExpenseRow({ expense }: { expense: Expense }) {
           />
           <select
             value={draft.category}
-            onChange={(e) => setDraft((d) => ({ ...d, category: e.target.value as ExpenseCategory }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, category: e.target.value as ExpenseCategory }))
+            }
             className="input"
           >
             {EXPENSE_CATEGORIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
           <input
@@ -480,7 +543,9 @@ function ExpenseRow({ expense }: { expense: Expense }) {
           <input
             inputMode="numeric"
             value={draft.supplyAmount}
-            onChange={(e) => setDraft((d) => ({ ...d, supplyAmount: e.target.value }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, supplyAmount: formatNumberInput(e.target.value) }))
+            }
             className="input text-right tabular-nums"
             placeholder="공급가액"
           />
@@ -491,7 +556,7 @@ function ExpenseRow({ expense }: { expense: Expense }) {
             className="input sm:col-span-2"
             placeholder="내용"
           />
-          <label className="flex items-center gap-2 text-sm sm:col-span-2">
+          <label className="flex items-center gap-2 text-sm sm:col-span-2 cursor-pointer">
             <input
               type="checkbox"
               checked={draft.withholding}
@@ -502,11 +567,11 @@ function ExpenseRow({ expense }: { expense: Expense }) {
           </label>
         </div>
         <div className="flex justify-end gap-2">
-          <Button size="sm" variant="ghost" onClick={() => setEditing(false)} data-icon="inline-start">
-            <X /> 취소
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="gap-1.5">
+            <X className="size-4" /> 취소
           </Button>
-          <Button size="sm" onClick={save} data-icon="inline-start">
-            <Check /> 저장
+          <Button size="sm" onClick={save} className="gap-1.5">
+            <Check className="size-4" /> 저장
           </Button>
         </div>
       </li>
@@ -523,7 +588,7 @@ function ExpenseRow({ expense }: { expense: Expense }) {
           <span className="truncate text-sm font-medium">{expense.vendor}</span>
           <span className="shrink-0 text-xs text-muted-foreground">{expense.date}</span>
           {expense.withholding && (
-            <span className="shrink-0 rounded bg-warning/20 px-1.5 py-0.5 text-[10px] font-semibold text-warning-foreground dark:text-warning">
+            <span className="shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
               원천징수
             </span>
           )}
@@ -568,7 +633,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
     party: entry.party,
     kind: entry.kind,
     category: '경비',
-    amount: String(entry.amount),
+    amount: Number(entry.amount).toLocaleString('ko-KR'),
     vatIncluded: entry.vatIncluded,
     taxable: entry.taxable !== false,
     withholding: false,
@@ -579,7 +644,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
   const isSale = entry.kind === 'sale'
 
   if (editing) {
-    const parsed = Number(draft.amount.replace(/[^0-9]/g, '')) || 0
+    const parsed = parseAmount(draft.amount)
     const save = () => {
       if (!draft.party.trim() || parsed <= 0) return
       updateLedger(entry.id, {
@@ -620,7 +685,9 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
           />
           <select
             value={draft.paymentMethod}
-            onChange={(e) => setDraft((d) => ({ ...d, paymentMethod: e.target.value as PaymentMethod }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, paymentMethod: e.target.value as PaymentMethod }))
+            }
             className="input"
           >
             {PAYMENT_METHODS.map((m) => (
@@ -632,7 +699,9 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
           <input
             inputMode="numeric"
             value={draft.amount}
-            onChange={(e) => setDraft((d) => ({ ...d, amount: e.target.value }))}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, amount: formatNumberInput(e.target.value) }))
+            }
             className="input text-right tabular-nums sm:col-span-2"
             placeholder="금액"
           />
@@ -664,11 +733,11 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <Button size="sm" variant="ghost" onClick={() => setEditing(false)} data-icon="inline-start">
-            <X /> 취소
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="gap-1.5">
+            <X className="size-4" /> 취소
           </Button>
-          <Button size="sm" onClick={save} data-icon="inline-start">
-            <Check /> 저장
+          <Button size="sm" onClick={save} className="gap-1.5">
+            <Check className="size-4" /> 저장
           </Button>
         </div>
       </li>
@@ -680,7 +749,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
       <span
         className={`inline-flex shrink-0 items-center rounded-md px-2 py-0.5 text-xs font-semibold ${
           isSale
-            ? 'bg-success/15 text-success'
+            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
             : 'bg-destructive/15 text-destructive'
         }`}
       >
@@ -708,7 +777,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
       </div>
       <span
         className={`shrink-0 text-sm font-semibold tabular-nums ${
-          isSale ? 'text-success' : 'text-destructive'
+          isSale ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'
         }`}
       >
         {isSale ? '+' : '-'}
@@ -758,7 +827,7 @@ function KindButton({
 }) {
   const activeClass =
     variant === 'sale'
-      ? 'border-success bg-success/10 text-success'
+      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
       : 'border-destructive bg-destructive/10 text-destructive'
   return (
     <button
