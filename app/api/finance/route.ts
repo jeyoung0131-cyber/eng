@@ -22,28 +22,35 @@ export async function GET() {
   const { url, token } = getKvConfig()
 
   if (!url || !token) {
-    console.error('DB Config Missing - URL/TOKEN missing')
     return NextResponse.json({ error: 'DB 설정이 없습니다.' }, { status: 500 })
   }
 
   try {
     const res = await fetch(`${url}/get/${KV_KEY}`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { Authorization: `Bearer ${token}` },
       cache: 'no-store',
     })
 
     const data = await res.json()
-    if (!data.result) {
+    if (!data || data.result === null || data.result === undefined) {
       return NextResponse.json({})
     }
 
-    // Upstash는 객체를 문자열(JSON string) 형태나 바로 객체로 리턴하므로 안전하게 파싱
-    const parsedData = typeof data.result === 'string' ? JSON.parse(data.result) : data.result
-    return NextResponse.json(parsedData)
+    let parsed = data.result
+    if (typeof parsed === 'string') {
+      try {
+        parsed = JSON.parse(parsed)
+      } catch (e) {
+        // 이미 파싱되어 있거나 형식이 다른 경우
+      }
+    }
+
+    return NextResponse.json(parsed || {}, {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    })
   } catch (error) {
-    console.error('GET Error:', error)
     return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 })
   }
 }
@@ -52,30 +59,28 @@ export async function POST(request: Request) {
   const { url, token } = getKvConfig()
 
   if (!url || !token) {
-    console.error('DB Config Missing - URL/TOKEN missing')
     return NextResponse.json({ error: 'DB 설정이 없습니다.' }, { status: 500 })
   }
 
   try {
     const body = await request.json()
+    const stringifiedBody = JSON.stringify(body)
 
-    // JSON.stringify로 변환하여 Upstash REST API 규격에 맞춰 저장
+    // Upstash REST API POST set endpoint
     const res = await fetch(`${url}/set/${KV_KEY}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(JSON.stringify(body)),
+      body: stringifiedBody,
     })
 
     if (!res.ok) {
-      throw new Error(`Upstash response error status: ${res.status}`)
+      return NextResponse.json({ error: 'DB Save Failed' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('POST Error:', error)
     return NextResponse.json({ error: 'Failed to save data' }, { status: 500 })
   }
 }
