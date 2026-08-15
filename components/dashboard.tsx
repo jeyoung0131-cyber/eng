@@ -3,6 +3,7 @@
 import {
   ArrowDownRight,
   ArrowUpRight,
+  Download,
   Landmark,
   Receipt,
   TrendingDown,
@@ -16,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { GaugeBar } from '@/components/gauge-bar'
 import { MonthlyChart } from '@/components/monthly-chart'
 import { useFinance } from '@/components/finance-provider'
@@ -27,7 +29,7 @@ import {
 } from '@/lib/finance'
 
 export function Dashboard() {
-  const { totals, monthly, projects, clients, expenses } = useFinance()
+  const { totals, monthly, projects, clients, expenses, ledger } = useFinance()
   const netProfit = totals.sales - totals.expenses
 
   const outstandingProjects = projects
@@ -37,8 +39,66 @@ export function Dashboard() {
   const clientName = (id: string) =>
     clients.find((c) => c.id === id)?.name ?? '-'
 
+  // CSV 다운로드 함수 (네이버 웨일 및 엑셀 완벽 지원)
+  const handleDownloadCsv = () => {
+    const todayStr = new Date().toISOString().slice(0, 10)
+    
+    // 1. 요약 정보 섹션
+    const summaryRows = [
+      ['[ 재무 요약 리포트 ]'],
+      ['총 매출 (공급가액)', totals.sales],
+      ['총 지출 (공급가액)', totals.expenses],
+      ['순이익', netProfit],
+      ['납부예상 부가세', totals.vatPayable],
+      ['원천징수 (3.3%)', totals.withholding],
+      ['미수금', totals.outstanding],
+      ['실보유 순자금', totals.netCash ?? 0],
+      [],
+    ]
+
+    // 2. 전체 장부 내역 섹션
+    const ledgerHeader = ['[ 전체 장부 내역 ]']
+    const ledgerColumns = ['구분', '날짜', '거래처', '금액', '부가세포함', '과세여부', '메모']
+    const ledgerData = ledger.map((item) => [
+      item.kind === 'sale' ? '매출' : '지출',
+      item.date,
+      `"${(item.party || '').replace(/"/g, '""')}"`,
+      item.amount,
+      item.vatIncluded ? '포함' : '별도',
+      item.taxable !== false ? '과세' : '비과세',
+      `"${(item.memo || '').replace(/"/g, '""')}"`,
+    ])
+
+    // 3. 전체 CSV 텍스트 조합
+    const csvContent = [
+      ...summaryRows.map((r) => r.join(',')),
+      ledgerHeader.join(','),
+      ledgerColumns.join(','),
+      ...ledgerData.map((r) => r.join(',')),
+    ].join('\n')
+
+    // 4. UTF-8 BOM(\uFEFF) 추가 후 CSV 다운로드
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    
+    link.href = url
+    link.setAttribute('download', `대시보드_재무리포트_${todayStr}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="flex flex-col gap-6">
+      {/* 상단 타이틀 & CSV 다운로드 버튼 */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">대시보드</h2>
+        <Button variant="outline" size="sm" onClick={handleDownloadCsv} className="gap-1.5">
+          <Download className="size-4" /> 엑셀(CSV) 다운로드
+        </Button>
+      </div>
+
       {/* 핵심 지표 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
@@ -82,7 +142,6 @@ export function Dashboard() {
           tone="destructive"
           hint={`입금 완료 ${formatWon(totals.received)}`}
         />
-        {/* ★ 신규 추가: 부가세를 뺀 실제 손에 쥐는 순자금 카드 */}
         <StatCard
           label="실보유 순자금 (부가세 제외)"
           value={formatWon(totals.netCash ?? 0)}
