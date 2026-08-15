@@ -54,7 +54,7 @@ export type LedgerEntry = {
   amount: number // 사용자가 입력한 금액
   vatIncluded: boolean // true면 amount가 부가세 포함 금액
   taxable?: boolean // false면 비과세(개인 이체·단순 출금 등) — 부가세 미적용
-  paymentMethod?: PaymentMethod // 결제 / 입금 수단 (추가)
+  paymentMethod?: PaymentMethod // 결제 / 입금 수단
   memo: string
 }
 
@@ -85,7 +85,18 @@ export function ledgerTotal(e: LedgerEntry) {
   return ledgerSupply(e) + ledgerVat(e)
 }
 
-export type ExpenseCategory = '원자재' | '외주가공' | '인건비' | '경비'
+// 지출 카테고리 타입 (기타 포함 확장)
+export type ExpenseCategory =
+  | '원자재'
+  | '외주가공'
+  | '인건비'
+  | '경비'
+  | '식비·접대비'
+  | '임차료·관리비'
+  | '차량·유류비'
+  | '소모품·집기'
+  | '통신·공과금'
+  | '기타'
 
 export type Expense = {
   id: string
