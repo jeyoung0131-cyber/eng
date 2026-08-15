@@ -13,6 +13,7 @@ import {
 import { useFinance } from '@/components/finance-provider'
 import {
   LEDGER_KIND_LABELS,
+  PAYMENT_METHOD_LABELS,
   expenseVat,
   expenseWithholding,
   formatWon,
@@ -24,9 +25,17 @@ import {
   type ExpenseCategory,
   type LedgerEntry,
   type LedgerKind,
+  type PaymentMethod,
 } from '@/lib/finance'
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = ['원자재', '외주가공', '인건비', '경비']
+
+const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: 'transfer', label: '계좌이체' },
+  { value: 'card', label: '카드' },
+  { value: 'cash', label: '현금' },
+  { value: 'other', label: '기타' },
+]
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -37,6 +46,7 @@ type FormState = {
   amount: string
   vatIncluded: boolean
   taxable: boolean
+  paymentMethod: PaymentMethod
   memo: string
 }
 
@@ -47,6 +57,7 @@ const emptyForm = (): FormState => ({
   amount: '',
   vatIncluded: true,
   taxable: true,
+  paymentMethod: 'transfer',
   memo: '',
 })
 
@@ -83,6 +94,7 @@ export function LedgerView() {
       amount: parsedAmount,
       vatIncluded: form.vatIncluded,
       taxable: form.taxable,
+      paymentMethod: form.paymentMethod,
       memo: form.memo.trim(),
     })
     setForm(emptyForm())
@@ -98,16 +110,17 @@ export function LedgerView() {
     [expenses],
   )
 
-  // CSV 다운로드 처리 함수 (네이버 웨일 및 모든 브라우저 호환)
+  // CSV 다운로드 처리 함수 (결제수단 열 추가)
   const handleDownloadCsv = () => {
     if (sorted.length === 0) return
 
-    const headers = ['구분', '일자', '거래처명', '공급가액', '부가세', '합계금액', '비과세여부', '메모']
-    
+    const headers = ['구분', '일자', '거래처명', '결제수단', '공급가액', '부가세', '합계금액', '비과세여부', '메모']
+
     const rows = sorted.map((entry) => [
       LEDGER_KIND_LABELS[entry.kind],
       entry.date,
       `"${(entry.party || '').replace(/"/g, '""')}"`,
+      PAYMENT_METHOD_LABELS[entry.paymentMethod || 'transfer'],
       ledgerSupply(entry),
       ledgerTaxable(entry) ? ledgerVat(entry) : 0,
       ledgerTotal(entry),
@@ -119,7 +132,7 @@ export function LedgerView() {
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
-    
+
     link.href = url
     link.setAttribute('download', `거래내역_${today()}.csv`)
     document.body.appendChild(link)
@@ -175,6 +188,20 @@ export function LedgerView() {
                   onChange={(e) => setForm((f) => ({ ...f, party: e.target.value }))}
                   className="input"
                 />
+              </Field>
+
+              <Field label="결제 / 입금 수단">
+                <select
+                  value={form.paymentMethod}
+                  onChange={(e) => setForm((f) => ({ ...f, paymentMethod: e.target.value as PaymentMethod }))}
+                  className="input"
+                >
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
 
               <Field label="금액 (원)">
@@ -469,6 +496,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
     amount: String(entry.amount),
     vatIncluded: entry.vatIncluded,
     taxable: entry.taxable !== false,
+    paymentMethod: entry.paymentMethod || 'transfer',
     memo: entry.memo,
   })
 
@@ -485,6 +513,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
         amount: parsed,
         vatIncluded: draft.vatIncluded,
         taxable: draft.taxable,
+        paymentMethod: draft.paymentMethod,
         memo: draft.memo.trim(),
       })
       setEditing(false)
@@ -513,11 +542,22 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
             className="input"
             placeholder="거래처명"
           />
+          <select
+            value={draft.paymentMethod}
+            onChange={(e) => setDraft((d) => ({ ...d, paymentMethod: e.target.value as PaymentMethod }))}
+            className="input"
+          >
+            {PAYMENT_METHODS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
           <input
             inputMode="numeric"
             value={draft.amount}
             onChange={(e) => setDraft((d) => ({ ...d, amount: e.target.value }))}
-            className="input text-right tabular-nums"
+            className="input text-right tabular-nums sm:col-span-2"
             placeholder="금액"
           />
           <input
@@ -543,7 +583,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
                 >
                   {m.label}
                 </button>
-              )
+              );
             })}
           </div>
         </div>
@@ -574,6 +614,9 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{entry.party}</span>
           <span className="shrink-0 text-xs text-muted-foreground">{entry.date}</span>
+          <span className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+            {PAYMENT_METHOD_LABELS[entry.paymentMethod || 'transfer']}
+          </span>
           {!ledgerTaxable(entry) && (
             <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
               비과세
