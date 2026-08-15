@@ -56,6 +56,8 @@ export type LedgerEntry = {
   taxable?: boolean // false면 비과세(개인 이체·단순 출금 등) — 부가세 미적용
   paymentMethod?: PaymentMethod // 결제 / 입금 수단
   memo: string
+  projectId?: string // 연동용 프로젝트 ID
+  stageKey?: StageKey // 연동용 단계 Key
 }
 
 export const LEDGER_KIND_LABELS: Record<LedgerKind, string> = {
@@ -160,6 +162,11 @@ export type DashboardTotals = {
   netCash: number // 실통장 잔액 (실제 입금액 - 실제 총지출)
 }
 
+/**
+ * 이중 합산 제거된 정확한 대시보드 집계
+ * - 매출/지출/부가세/실통장잔액: 오직 장부 작성(ledger) 기준
+ * - 미수금: 프로젝트(projects) 계약 잔액 기준
+ */
 export function computeTotals(
   projects: SaleProject[],
   expenses: Expense[],
@@ -168,28 +175,40 @@ export function computeTotals(
   const ledgerSales = ledger.filter((e) => e.kind === 'sale')
   const ledgerExpenses = ledger.filter((e) => e.kind === 'expense')
 
-  const sales =
-    projects.reduce((s, p) => s + projectPaidSupply(p), 0) +
-    ledgerSales.reduce((s, e) => s + ledgerSupply(e), 0)
+  // 1. 총 매출 공급가액 (오직 장부 기준)
+  const sales = ledgerSales.reduce((s, e) => s + ledgerSupply(e), 0)
 
-  const salesVat = Math.round(sales * VAT_RATE)
+  // 2. 매출 세액 (오직 장부 기준)
+  const salesVat = ledgerSales.reduce((s, e) => s + ledgerVat(e), 0)
 
+  // 3. 미수금 합계 (프로젝트 계약 잔액 기준)
   const outstanding = projects.reduce((s, p) => s + projectOutstanding(p), 0)
-  const received =
-    projects.reduce((s, p) => s + projectReceived(p), 0) +
-    ledgerSales.reduce((s, e) => s + ledgerTotal(e), 0)
 
+  // 4. 총 통장 입금액 (부가세 포함, 장부 기준)
+  const received = ledgerSales.reduce((s, e) => s + ledgerTotal(e), 0)
+
+  // 5. 총 지출 공급가액 (장부 + 직접 등록 지출)
   const expensesTotal =
     expenses.reduce((s, e) => s + e.supplyAmount, 0) +
     ledgerExpenses.reduce((s, e) => s + ledgerSupply(e), 0)
+
+  // 6. 매입 세액
   const purchaseVat =
     expenses.reduce((s, e) => s + expenseVat(e), 0) +
     ledgerExpenses.reduce((s, e) => s + ledgerVat(e), 0)
+
+  // 7. 원천징수 합계
   const withholding = expenses.reduce((s, e) => s + expenseWithholding(e), 0)
 
+  // 8. 납부 예상 부가세
   const vatPayable = salesVat - purchaseVat
 
-  const netCash = received - expensesTotal
+  // 9. 실통장 순 잔액 (실제 입금액 - 실제 지출총액 - 부가세예정액)
+  const totalPaidExpenses =
+    expenses.reduce((s, e) => s + (e.supplyAmount + expenseVat(e)), 0) +
+    ledgerExpenses.reduce((s, e) => s + ledgerTotal(e), 0)
+
+  const netCash = received - totalPaidExpenses - (vatPayable > 0 ? vatPayable : 0)
 
   return {
     sales,
@@ -219,7 +238,7 @@ export function formatCompactWon(n: number) {
   return formatWon(n)
 }
 
-// ---------- 월별 집계 (차트용) ----------
+// ---------- 월별 집계 (차트용: 이중 합산 완전 제거) ----------
 
 export type MonthlyPoint = { month: string; sales: number; expenses: number }
 
@@ -233,19 +252,25 @@ export function monthlySeries(
     if (!map.has(m)) map.set(m, { month: m, sales: 0, expenses: 0 })
     return map.get(m)!
   }
-  for (const p of projects) {
-    const m = p.date.slice(0, 7)
-    ensure(m).sales += projectPaidSupply(p)
+
+  // 장부(ledger) 기준 월별 매출 & 지출
+  for (const e of ledger) {
+    if (!e.date) continue
+    const m = e.date.slice(0, 7)
+    if (e.kind === 'sale') {
+      ensure(m).sales += ledgerSupply(e)
+    } else {
+      ensure(m).expenses += ledgerSupply(e)
+    }
   }
+
+  // 직접 등록된 지출 항목(expenses)
   for (const e of expenses) {
+    if (!e.date) continue
     const m = e.date.slice(0, 7)
     ensure(m).expenses += e.supplyAmount
   }
-  for (const e of ledger) {
-    const m = e.date.slice(0, 7)
-    if (e.kind === 'sale') ensure(m).sales += ledgerSupply(e)
-    else ensure(m).expenses += ledgerSupply(e)
-  }
+
   return [...map.values()].sort((a, b) => a.month.localeCompare(b.month))
 }
 
@@ -279,7 +304,7 @@ export function buildTransactionsCsv(
 
   for (const p of projects) {
     rows.push([
-      '매출',
+      '매출계약',
       p.date,
       clientName(p.clientId),
       '계좌이체',
