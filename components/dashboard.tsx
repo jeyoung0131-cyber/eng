@@ -28,22 +28,26 @@ import {
 } from '@/lib/finance'
 
 export function Dashboard() {
-  // ledger 데이터를 함께 가져옵니다.
   const { totals, monthly, projects, clients, expenses, ledger } = useFinance()
   const netProfit = totals.sales - totals.expenses
 
-  // ledger 배열 중 지출 항목 필터링
+  // 장부(ledger) 배열 중 지출 항목만 추출
   const ledgerExpenses = useMemo(
     () => ledger.filter((entry) => entry.kind === 'expense'),
     [ledger],
   )
 
-  // 총 지출 건수 (장부 지출 건수 + 상세 지출 건수 중 중복되지 않는 전체 지출 건수)
+  // 총 지출 건수 산출 (장부 지출 내역 우선, 없을 경우 기존 expenses 사용)
   const totalExpenseCount = ledgerExpenses.length || expenses.length
 
-  const outstandingProjects = projects
-    .filter((p) => projectOutstanding(p) > 0)
-    .sort((a, b) => projectOutstanding(b) - projectOutstanding(a))
+  // 미수금이 남아있는 프로젝트만 추출하여 미수금액 높은 순 정렬
+  const outstandingProjects = useMemo(
+    () =>
+      projects
+        .filter((p) => projectOutstanding(p) > 0)
+        .sort((a, b) => projectOutstanding(b) - projectOutstanding(a)),
+    [projects],
+  )
 
   const clientName = (id: string) =>
     clients.find((c) => c.id === id)?.name ?? '-'
@@ -69,7 +73,7 @@ export function Dashboard() {
           value={formatWon(totals.expenses)}
           icon={<TrendingDown className="size-5" />}
           tone="muted"
-          hint={`지출 ${totalExpenseCount}건`} // 기존 expenses.length에서 연동된 totalExpenseCount로 수정
+          hint={`지출 ${totalExpenseCount}건`}
         />
         <StatCard
           label="순이익 (매출 - 지출)"
@@ -114,7 +118,7 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* 월별 추이 */}
+        {/* 월별 추이 차트 */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle>월별 매출·지출 추이</CardTitle>
@@ -124,7 +128,7 @@ export function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* 부가세/원천징수 요약 */}
+        {/* 세무 요약 */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>세무 요약</CardTitle>
@@ -143,44 +147,45 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {/* 미수금 현황 */}
+      {/* 미수금 현황 카드 */}
       <Card>
         <CardHeader>
           <CardTitle>미수금 현황 (거래처별 입금 진행)</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          {outstandingProjects.length === 0 && (
+          {outstandingProjects.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               미수금이 없습니다. 모든 대금이 입금되었습니다.
             </p>
-          )}
-          {outstandingProjects.map((p) => (
-            <div key={p.id} className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium">{clientName(p.clientId)}</span>
-                  <span className="text-xs text-muted-foreground">{p.title}</span>
+          ) : (
+            outstandingProjects.map((p) => (
+              <div key={p.id} className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">{clientName(p.clientId)}</span>
+                    <span className="text-xs text-muted-foreground">{p.title}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-semibold text-destructive">
+                      미수 {formatWon(projectOutstanding(p))}
+                    </span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {Math.round(projectProgress(p) * 100)}% 입금
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-sm font-semibold text-destructive">
-                    미수 {formatWon(projectOutstanding(p))}
-                  </span>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    {Math.round(projectProgress(p) * 100)}% 입금
-                  </span>
-                </div>
+                <GaugeBar
+                  progress={projectProgress(p)}
+                  segments={p.stages.map((s) => ({
+                    key: s.key,
+                    label: STAGE_LABELS[s.key],
+                    value: s.amount || 1,
+                    active: s.paid,
+                  }))}
+                />
               </div>
-              <GaugeBar
-                progress={projectProgress(p)}
-                segments={p.stages.map((s) => ({
-                  key: s.key,
-                  label: STAGE_LABELS[s.key],
-                  value: s.amount || 1,
-                  active: s.paid,
-                }))}
-              />
-            </div>
-          ))}
+            ))
+          )}
         </CardContent>
       </Card>
     </div>
@@ -189,11 +194,12 @@ export function Dashboard() {
 
 type Tone = 'primary' | 'success' | 'destructive' | 'warning' | 'muted'
 
+// Tailwind 기본 컬러셋과 안정적으로 호환되도록 CSS 클래스 보완
 const toneClasses: Record<Tone, string> = {
   primary: 'bg-primary/10 text-primary',
-  success: 'bg-success/15 text-success',
+  success: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   destructive: 'bg-destructive/10 text-destructive',
-  warning: 'bg-warning/20 text-warning-foreground dark:text-warning',
+  warning: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
   muted: 'bg-muted text-muted-foreground',
 }
 
