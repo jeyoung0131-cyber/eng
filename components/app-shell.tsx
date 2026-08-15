@@ -5,24 +5,21 @@ import {
   BarChart3,
   BookOpen,
   Download,
-  Moon,
   RotateCcw,
-  Sun,
   Users,
 } from 'lucide-react'
-import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Dashboard } from '@/components/dashboard'
 import { LedgerView } from '@/components/ledger-view'
 import { ClientsView } from '@/components/clients-view'
+import { ThemeToggle } from '@/components/theme-toggle'
 import { useFinance } from '@/components/finance-provider'
 
 export function AppShell() {
   const [tab, setTab] = useState<'dashboard' | 'ledger' | 'clients'>('dashboard')
-  const { theme, setTheme } = useTheme()
   const { ledger, totals, resetAll } = useFinance()
 
-  // 네이버 웨일/엑셀 완벽 지원 CSV 다운로드
+  // 네이버 웨일 및 엑셀 완벽 지원 CSV 다운로드
   const handleDownloadCsv = (e: React.MouseEvent) => {
     e.preventDefault()
 
@@ -121,7 +118,7 @@ export function AppShell() {
               <RotateCcw className="size-3.5" /> 초기화
             </Button>
             
-            {/* 맨 위 상단 다운로드 버튼 (정상 작동 로직 적용) */}
+            {/* 상단 엑셀 다운로드 버튼 */}
             <Button
               type="button"
               variant="outline"
@@ -132,17 +129,8 @@ export function AppShell() {
               <Download className="size-3.5" /> 엑셀 다운로드
             </Button>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            >
-              <Sun className="size-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute size-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">테마 변경</span>
-            </Button>
+            {/* 기존 프로젝트의 ThemeToggle 컴포넌트 사용 */}
+            <ThemeToggle />
           </div>
         </div>
 
