@@ -28,7 +28,18 @@ import {
   type PaymentMethod,
 } from '@/lib/finance'
 
-const EXPENSE_CATEGORIES: ExpenseCategory[] = ['원자재', '외주가공', '인건비', '경비']
+const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  '원자재',
+  '외주가공',
+  '인건비',
+  '경비',
+  '식비·접대비',
+  '임차료·관리비',
+  '차량·유류비',
+  '소모품·집기',
+  '통신·공과금',
+  '기타',
+]
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'transfer', label: '계좌이체' },
@@ -644,7 +655,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
                 >
                   {m.label}
                 </button>
-              )
+              );
             })}
           </div>
         </div>
