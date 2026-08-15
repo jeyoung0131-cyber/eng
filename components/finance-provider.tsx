@@ -67,17 +67,18 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [ledger, setLedger] = useState<LedgerEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // 서버에서 전체 데이터 불러오기
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true)
-      const res = await fetch('/api/finance')
+      const res = await fetch('/api/finance', { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
-        if (data.clients) setClients(data.clients)
-        if (data.projects) setProjects(data.projects)
-        if (data.expenses) setExpenses(data.expenses)
-        if (data.ledger) setLedger(data.ledger)
+        if (data && typeof data === 'object') {
+          setClients(data.clients || [])
+          setProjects(data.projects || [])
+          setExpenses(data.expenses || [])
+          setLedger(data.ledger || [])
+        }
       }
     } catch (err) {
       console.error('데이터 동기화 에러:', err)
@@ -90,7 +91,6 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     fetchData()
   }, [fetchData])
 
-  // 서버에 데이터 저장
   const saveData = useCallback(
     async (nextState: {
       clients?: Client[]
