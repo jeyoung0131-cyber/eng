@@ -36,6 +36,16 @@ export type SaleProject = {
 // 간편 장부 항목 (매출/지출 직접 입력)
 export type LedgerKind = 'sale' | 'expense'
 
+// 결제 / 입금 수단 타입 및 표기 라벨
+export type PaymentMethod = 'transfer' | 'card' | 'cash' | 'other'
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  transfer: '계좌이체',
+  card: '카드',
+  cash: '현금',
+  other: '기타',
+}
+
 export type LedgerEntry = {
   id: string
   date: string
@@ -44,6 +54,7 @@ export type LedgerEntry = {
   amount: number // 사용자가 입력한 금액
   vatIncluded: boolean // true면 amount가 부가세 포함 금액
   taxable?: boolean // false면 비과세(개인 이체·단순 출금 등) — 부가세 미적용
+  paymentMethod?: PaymentMethod // 결제 / 입금 수단 (추가)
   memo: string
 }
 
@@ -135,7 +146,7 @@ export type DashboardTotals = {
   withholding: number // 원천징수 합계
   outstanding: number // 미수금 합계
   received: number // 총 입금액(부가세 포함)
-  netCash: number // ★ 실통장 잔액 (실제 입금액 - 실제 총지출)
+  netCash: number // 실통장 잔액 (실제 입금액 - 실제 총지출)
 }
 
 export function computeTotals(
@@ -149,7 +160,7 @@ export function computeTotals(
   const sales =
     projects.reduce((s, p) => s + projectPaidSupply(p), 0) +
     ledgerSales.reduce((s, e) => s + ledgerSupply(e), 0)
-  
+
   const salesVat = Math.round(sales * VAT_RATE)
 
   const outstanding = projects.reduce((s, p) => s + projectOutstanding(p), 0)
@@ -167,7 +178,6 @@ export function computeTotals(
 
   const vatPayable = salesVat - purchaseVat
 
-  // ★ 통장 기준 실보유 잔액 = 통장 입금액(1,540만) - 실제 출금 지출(1,487.5만)
   const netCash = received - expensesTotal
 
   return {
@@ -243,6 +253,7 @@ export function buildTransactionsCsv(
     '구분',
     '일자',
     '거래처/공급자',
+    '결제수단',
     '내용',
     '공급가액',
     '부가세',
@@ -260,6 +271,7 @@ export function buildTransactionsCsv(
       '매출',
       p.date,
       clientName(p.clientId),
+      '계좌이체',
       p.title,
       p.supplyAmount,
       projectVat(p),
@@ -276,6 +288,7 @@ export function buildTransactionsCsv(
       '지출',
       e.date,
       e.vendor,
+      '계좌이체',
       `[${e.category}] ${e.description}`,
       e.supplyAmount,
       expenseVat(e),
@@ -289,10 +302,12 @@ export function buildTransactionsCsv(
 
   for (const e of ledger) {
     const isSale = e.kind === 'sale'
+    const methodLabel = PAYMENT_METHOD_LABELS[e.paymentMethod || 'transfer']
     rows.push([
       LEDGER_KIND_LABELS[e.kind],
       e.date,
       e.party,
+      methodLabel,
       e.memo || (isSale ? '매출 입력' : '지출 입력'),
       ledgerSupply(e),
       ledgerVat(e),
