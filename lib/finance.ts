@@ -159,7 +159,7 @@ export type DashboardTotals = {
   withholding: number // 원천징수 합계
   outstanding: number // 미수금 합계
   received: number // 총 입금액(부가세 포함)
-  netCash: number // 실통장 잔액 (실제 입금액 - 실제 총지출)
+  netCash: number // 실통장 잔액 (통장 입금액 - 총지출)
 }
 
 /**
@@ -184,10 +184,10 @@ export function computeTotals(
   // 3. 미수금 합계 (프로젝트 계약 잔액 기준)
   const outstanding = projects.reduce((s, p) => s + projectOutstanding(p), 0)
 
-  // 4. 총 통장 입금액 (부가세 포함, 장부 기준)
+  // 4. 총 통장 입금액 (통장에 찍힌 실 입금액: 15,400,000원)
   const received = ledgerSales.reduce((s, e) => s + ledgerTotal(e), 0)
 
-  // 5. 총 지출 공급가액 (장부 + 직접 등록 지출)
+  // 5. 총 지출 공급가액 (14,875,160원)
   const expensesTotal =
     expenses.reduce((s, e) => s + e.supplyAmount, 0) +
     ledgerExpenses.reduce((s, e) => s + ledgerSupply(e), 0)
@@ -203,12 +203,8 @@ export function computeTotals(
   // 8. 납부 예상 부가세
   const vatPayable = salesVat - purchaseVat
 
-  // 9. 실통장 순 잔액 (실제 입금액 - 실제 지출총액 - 부가세예정액)
-  const totalPaidExpenses =
-    expenses.reduce((s, e) => s + (e.supplyAmount + expenseVat(e)), 0) +
-    ledgerExpenses.reduce((s, e) => s + ledgerTotal(e), 0)
-
-  const netCash = received - totalPaidExpenses - (vatPayable > 0 ? vatPayable : 0)
+  // 9. 실보유 순자금 (통장 입금액 15,400,000원 - 지출 14,875,160원 = 524,840원)
+  const netCash = received - expensesTotal
 
   return {
     sales,
