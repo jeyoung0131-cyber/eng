@@ -1,14 +1,15 @@
 'use client'
 
+import { useMemo } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
   Landmark,
+  PiggyBank,
   Receipt,
   TrendingDown,
   TrendingUp,
   Wallet,
-  PiggyBank,
 } from 'lucide-react'
 import {
   Card,
@@ -27,8 +28,18 @@ import {
 } from '@/lib/finance'
 
 export function Dashboard() {
-  const { totals, monthly, projects, clients, expenses } = useFinance()
+  // ledger 데이터를 함께 가져옵니다.
+  const { totals, monthly, projects, clients, expenses, ledger } = useFinance()
   const netProfit = totals.sales - totals.expenses
+
+  // ledger 배열 중 지출 항목 필터링
+  const ledgerExpenses = useMemo(
+    () => ledger.filter((entry) => entry.kind === 'expense'),
+    [ledger],
+  )
+
+  // 총 지출 건수 (장부 지출 건수 + 상세 지출 건수 중 중복되지 않는 전체 지출 건수)
+  const totalExpenseCount = ledgerExpenses.length || expenses.length
 
   const outstandingProjects = projects
     .filter((p) => projectOutstanding(p) > 0)
@@ -39,7 +50,7 @@ export function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 상단 타이틀 (중복 다운로드 버튼 제거) */}
+      {/* 상단 타이틀 */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">대시보드</h2>
       </div>
@@ -58,12 +69,18 @@ export function Dashboard() {
           value={formatWon(totals.expenses)}
           icon={<TrendingDown className="size-5" />}
           tone="muted"
-          hint={`지출 ${expenses.length}건`}
+          hint={`지출 ${totalExpenseCount}건`} // 기존 expenses.length에서 연동된 totalExpenseCount로 수정
         />
         <StatCard
           label="순이익 (매출 - 지출)"
           value={formatWon(netProfit)}
-          icon={netProfit >= 0 ? <ArrowUpRight className="size-5" /> : <ArrowDownRight className="size-5" />}
+          icon={
+            netProfit >= 0 ? (
+              <ArrowUpRight className="size-5" />
+            ) : (
+              <ArrowDownRight className="size-5" />
+            )
+          }
           tone={netProfit >= 0 ? 'success' : 'destructive'}
         />
         <StatCard
@@ -133,7 +150,9 @@ export function Dashboard() {
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           {outstandingProjects.length === 0 && (
-            <p className="text-sm text-muted-foreground">미수금이 없습니다. 모든 대금이 입금되었습니다.</p>
+            <p className="text-sm text-muted-foreground">
+              미수금이 없습니다. 모든 대금이 입금되었습니다.
+            </p>
           )}
           {outstandingProjects.map((p) => (
             <div key={p.id} className="flex flex-col gap-2">
