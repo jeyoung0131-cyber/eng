@@ -37,10 +37,10 @@ export function Dashboard() {
     [ledger],
   )
 
-  // 총 지출 건수 산출 (장부 지출 내역 우선, 없을 경우 기존 expenses 사용)
+  // 총 지출 건수
   const totalExpenseCount = ledgerExpenses.length || expenses.length
 
-  // 미수금이 남아있는 프로젝트만 추출하여 미수금액 높은 순 정렬
+  // 미수금이 남아있는 프로젝트만 추출하여 정렬
   const outstandingProjects = useMemo(
     () =>
       projects
@@ -59,8 +59,9 @@ export function Dashboard() {
         <h2 className="text-2xl font-bold tracking-tight">대시보드</h2>
       </div>
 
-      {/* 핵심 지표 */}
+      {/* 핵심 지표 (미수금 현황과 순이익 위치 교체) */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {/* 1. 총 매출 */}
         <StatCard
           label="총 매출 (공급가액)"
           value={formatWon(totals.sales)}
@@ -68,6 +69,7 @@ export function Dashboard() {
           tone="primary"
           hint={`거래 ${projects.length}건`}
         />
+        {/* 2. 총 지출 */}
         <StatCard
           label="총 지출 (공급가액)"
           value={formatWon(totals.expenses)}
@@ -75,6 +77,31 @@ export function Dashboard() {
           tone="muted"
           hint={`지출 ${totalExpenseCount}건`}
         />
+        {/* 3. 미수금 현황 (위치 이동) */}
+        <StatCard
+          label="미수금 현황"
+          value={formatWon(totals.outstanding)}
+          icon={<Wallet className="size-5" />}
+          tone="destructive"
+          hint={`입금 완료 ${formatWon(totals.received)}`}
+        />
+        {/* 4. 납부예상 부가세 */}
+        <StatCard
+          label="납부예상 부가세 (10%)"
+          value={formatWon(totals.vatPayable)}
+          icon={<Receipt className="size-5" />}
+          tone="warning"
+          hint={`매출세액 ${formatWon(totals.salesVat)} · 매입세액 ${formatWon(totals.purchaseVat)}`}
+        />
+        {/* 5. 원천징수 */}
+        <StatCard
+          label="원천징수 (3.3%)"
+          value={formatWon(totals.withholding)}
+          icon={<Landmark className="size-5" />}
+          tone="muted"
+          hint="사업소득 원천징수 합계"
+        />
+        {/* 6. 순이익 (위치 이동) */}
         <StatCard
           label="순이익 (매출 - 지출)"
           value={formatWon(netProfit)}
@@ -87,27 +114,7 @@ export function Dashboard() {
           }
           tone={netProfit >= 0 ? 'success' : 'destructive'}
         />
-        <StatCard
-          label="납부예상 부가세 (10%)"
-          value={formatWon(totals.vatPayable)}
-          icon={<Receipt className="size-5" />}
-          tone="warning"
-          hint={`매출세액 ${formatWon(totals.salesVat)} · 매입세액 ${formatWon(totals.purchaseVat)}`}
-        />
-        <StatCard
-          label="원천징수 (3.3%)"
-          value={formatWon(totals.withholding)}
-          icon={<Landmark className="size-5" />}
-          tone="muted"
-          hint="사업소득 원천징수 합계"
-        />
-        <StatCard
-          label="미수금 현황"
-          value={formatWon(totals.outstanding)}
-          icon={<Wallet className="size-5" />}
-          tone="destructive"
-          hint={`입금 완료 ${formatWon(totals.received)}`}
-        />
+        {/* 7. 실보유 순자금 */}
         <StatCard
           label="실보유 순자금 (부가세 제외)"
           value={formatWon(totals.netCash ?? 0)}
@@ -147,7 +154,7 @@ export function Dashboard() {
         </Card>
       </div>
 
-      {/* 미수금 현황 카드 */}
+      {/* 미수금 현황 상세 */}
       <Card>
         <CardHeader>
           <CardTitle>미수금 현황 (거래처별 입금 진행)</CardTitle>
@@ -194,7 +201,6 @@ export function Dashboard() {
 
 type Tone = 'primary' | 'success' | 'destructive' | 'warning' | 'muted'
 
-// Tailwind 기본 컬러셋과 안정적으로 호환되도록 CSS 클래스 보완
 const toneClasses: Record<Tone, string> = {
   primary: 'bg-primary/10 text-primary',
   success: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
