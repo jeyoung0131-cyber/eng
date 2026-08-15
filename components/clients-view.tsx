@@ -5,10 +5,10 @@ import {
   Check,
   CircleDashed,
   Pencil,
-  Plus,
-  Trash2
+Plus,
+  Trash2,
   UserPlus,
-  X,
+  X
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
