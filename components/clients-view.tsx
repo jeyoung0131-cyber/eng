@@ -232,12 +232,12 @@ function ProjectCard({ project: p }: { project: SaleProject }) {
             onClick={() => toggleStage(p.id, s.key)}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
               s.paid
-                ? 'border-success/40 bg-success/15 text-success'
+                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                 : 'border-border bg-background text-muted-foreground hover:bg-muted'
             }`}
           >
             {s.paid ? (
-              <Check className="size-3.5" />
+              <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />
             ) : (
               <CircleDashed className="size-3.5" />
             )}
@@ -257,7 +257,9 @@ function ProjectCard({ project: p }: { project: SaleProject }) {
       />
 
       <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs">
-        <span className="text-success">입금 {formatWon(projectReceived(p))}</span>
+        <span className="font-medium text-emerald-600 dark:text-emerald-400">
+          입금 {formatWon(projectReceived(p))}
+        </span>
         <span
           className={
             projectOutstanding(p) > 0
@@ -300,7 +302,7 @@ function ProjectEditForm({
   const [clientId, setClientId] = useState(p.clientId)
   const [title, setTitle] = useState(p.title)
   const [amount, setAmount] = useState(String(p.supplyAmount))
-  const [date, setDate] = useState(p.date)
+  const [date, setDate] = useState(p.date || new Date().toISOString().slice(0, 10))
   const [ratios, setRatios] = useState<Record<StageKey, number>>({
     advance: ratioOf('advance'),
     interim: ratioOf('interim'),
@@ -388,7 +390,7 @@ function ProjectEditForm({
             ))}
           </div>
           <p
-            className={`mt-1 text-xs ${ratioSum === 100 ? 'text-muted-foreground' : 'text-destructive'}`}
+            className={`mt-1 text-xs ${ratioSum === 100 ? 'text-muted-foreground' : 'text-destructive font-medium'}`}
           >
             합계 {ratioSum}% {ratioSum !== 100 && '(100%가 되도록 맞춰주세요)'}
           </p>
@@ -487,7 +489,7 @@ function ProjectForm() {
   const [clientId, setClientId] = useState('')
   const [title, setTitle] = useState('')
   const [amount, setAmount] = useState('')
-  const [date, setDate] = useState('')
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [ratios, setRatios] = useState<Record<StageKey, number>>({
     advance: 30,
     interim: 40,
@@ -499,17 +501,16 @@ function ProjectForm() {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!clientId || !title.trim() || amountNum <= 0) return
+    if (!clientId || !title.trim() || amountNum <= 0 || ratioSum !== 100) return
     addProject({
       clientId,
       title: title.trim(),
-      date,
+      date: date || new Date().toISOString().slice(0, 10),
       supplyAmount: amountNum,
       stageRatios: ratios,
     })
     setTitle('')
     setAmount('')
-    setDate('')
   }
 
   return (
@@ -588,7 +589,7 @@ function ProjectForm() {
               ))}
             </div>
             <p
-              className={`mt-1 text-xs ${ratioSum === 100 ? 'text-muted-foreground' : 'text-destructive'}`}
+              className={`mt-1 text-xs ${ratioSum === 100 ? 'text-muted-foreground' : 'text-destructive font-medium'}`}
             >
               합계 {ratioSum}% {ratioSum !== 100 && '(100%가 되도록 맞춰주세요)'}
             </p>
@@ -597,7 +598,7 @@ function ProjectForm() {
           <Button
             type="submit"
             data-icon="inline-start"
-            disabled={ratioSum !== 100}
+            disabled={ratioSum !== 100 || !clientId || !title.trim() || amountNum <= 0}
             className="mt-1 self-start"
           >
             <Plus /> 거래 추가
