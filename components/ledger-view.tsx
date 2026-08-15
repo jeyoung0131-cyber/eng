@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { Check, Download, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -98,158 +98,198 @@ export function LedgerView() {
     [expenses],
   )
 
+  // CSV 다운로드 처리 함수 (네이버 웨일 및 모든 브라우저 호환)
+  const handleDownloadCsv = () => {
+    if (sorted.length === 0) return
+
+    const headers = ['구분', '일자', '거래처명', '공급가액', '부가세', '합계금액', '비과세여부', '메모']
+    
+    const rows = sorted.map((entry) => [
+      LEDGER_KIND_LABELS[entry.kind],
+      entry.date,
+      `"${(entry.party || '').replace(/"/g, '""')}"`,
+      ledgerSupply(entry),
+      ledgerTaxable(entry) ? ledgerVat(entry) : 0,
+      ledgerTotal(entry),
+      ledgerTaxable(entry) ? '과세' : '비과세',
+      `"${(entry.memo || '').replace(/"/g, '""')}"`,
+    ])
+
+    const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n')
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    
+    link.href = url
+    link.setAttribute('download', `거래내역_${today()}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="flex flex-col gap-6">
-    <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-      <Card className="h-fit lg:sticky lg:top-32">
-        <CardHeader>
-          <CardTitle>매출 / 지출 입력</CardTitle>
-          <CardDescription>
-            등록하면 대시보드 숫자에 즉시 반영됩니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="grid grid-cols-2 gap-2">
-              <KindButton
-                active={form.kind === 'sale'}
-                onClick={() => setForm((f) => ({ ...f, kind: 'sale' }))}
-                variant="sale"
-              >
-                매출
-              </KindButton>
-              <KindButton
-                active={form.kind === 'expense'}
-                onClick={() => setForm((f) => ({ ...f, kind: 'expense' }))}
-                variant="expense"
-              >
-                지출
-              </KindButton>
+      <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+        <Card className="h-fit lg:sticky lg:top-32">
+          <CardHeader>
+            <CardTitle>매출 / 지출 입력</CardTitle>
+            <CardDescription>
+              등록하면 대시보드 숫자에 즉시 반영됩니다.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-2">
+                <KindButton
+                  active={form.kind === 'sale'}
+                  onClick={() => setForm((f) => ({ ...f, kind: 'sale' }))}
+                  variant="sale"
+                >
+                  매출
+                </KindButton>
+                <KindButton
+                  active={form.kind === 'expense'}
+                  onClick={() => setForm((f) => ({ ...f, kind: 'expense' }))}
+                  variant="expense"
+                >
+                  지출
+                </KindButton>
+              </div>
+
+              <Field label="날짜">
+                <input
+                  type="date"
+                  required
+                  value={form.date}
+                  onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+                  className="input"
+                />
+              </Field>
+
+              <Field label="거래처명">
+                <input
+                  type="text"
+                  required
+                  placeholder="예: 신성기공"
+                  value={form.party}
+                  onChange={(e) => setForm((f) => ({ ...f, party: e.target.value }))}
+                  className="input"
+                />
+              </Field>
+
+              <Field label="금액 (원)">
+                <input
+                  inputMode="numeric"
+                  required
+                  placeholder="0"
+                  value={form.amount ? Number(form.amount.replace(/[^0-9]/g, '')).toLocaleString('ko-KR') : ''}
+                  onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                  className="input text-right tabular-nums"
+                />
+              </Field>
+
+              <Field label="부가세 처리">
+                <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted/50 p-1">
+                  {VAT_MODES.map((m) => {
+                    const active = vatModeOf(form) === m.value
+                    return (
+                      <button
+                        key={m.value}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, ...applyVatMode(m.value) }))}
+                        className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                          active
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  개인 이체·단순 출금 등 부가세가 없는 거래는 &lsquo;비과세&rsquo;를 선택하세요.
+                </p>
+              </Field>
+
+              {parsedAmount > 0 && (
+                <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <div className="flex justify-between">
+                    <span>공급가액</span>
+                    <span className="tabular-nums text-foreground">
+                      {formatWon(
+                        !form.taxable
+                          ? parsedAmount
+                          : form.vatIncluded
+                            ? Math.round(parsedAmount / 1.1)
+                            : parsedAmount,
+                      )}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex justify-between">
+                    <span>부가세 (10%)</span>
+                    <span className="tabular-nums text-foreground">
+                      {!form.taxable
+                        ? '비과세'
+                        : formatWon(
+                            form.vatIncluded
+                              ? parsedAmount - Math.round(parsedAmount / 1.1)
+                              : Math.round(parsedAmount * 0.1),
+                          )}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              <Field label="메모">
+                <textarea
+                  rows={2}
+                  placeholder="선택 입력"
+                  value={form.memo}
+                  onChange={(e) => setForm((f) => ({ ...f, memo: e.target.value }))}
+                  className="input resize-none"
+                />
+              </Field>
+
+              <Button type="submit" disabled={!canSubmit} data-icon="inline-start">
+                <Plus /> 등록하기
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <div>
+              <CardTitle>입력 내역</CardTitle>
+              <CardDescription>총 {sorted.length}건</CardDescription>
             </div>
-
-            <Field label="날짜">
-              <input
-                type="date"
-                required
-                value={form.date}
-                onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                className="input"
-              />
-            </Field>
-
-            <Field label="거래처명">
-              <input
-                type="text"
-                required
-                placeholder="예: 신성기공"
-                value={form.party}
-                onChange={(e) => setForm((f) => ({ ...f, party: e.target.value }))}
-                className="input"
-              />
-            </Field>
-
-            <Field label="금액 (원)">
-              <input
-                inputMode="numeric"
-                required
-                placeholder="0"
-                value={form.amount ? Number(form.amount.replace(/[^0-9]/g, '')).toLocaleString('ko-KR') : ''}
-                onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-                className="input text-right tabular-nums"
-              />
-            </Field>
-
-            <Field label="부가세 처리">
-              <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-muted/50 p-1">
-                {VAT_MODES.map((m) => {
-                  const active = vatModeOf(form) === m.value
-                  return (
-                    <button
-                      key={m.value}
-                      type="button"
-                      onClick={() => setForm((f) => ({ ...f, ...applyVatMode(m.value) }))}
-                      className={`rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-                        active
-                          ? 'bg-background text-foreground shadow-sm'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                개인 이체·단순 출금 등 부가세가 없는 거래는 &lsquo;비과세&rsquo;를 선택하세요.
-              </p>
-            </Field>
-
-            {parsedAmount > 0 && (
-              <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                <div className="flex justify-between">
-                  <span>공급가액</span>
-                  <span className="tabular-nums text-foreground">
-                    {formatWon(
-                      !form.taxable
-                        ? parsedAmount
-                        : form.vatIncluded
-                          ? Math.round(parsedAmount / 1.1)
-                          : parsedAmount,
-                    )}
-                  </span>
-                </div>
-                <div className="mt-1 flex justify-between">
-                  <span>부가세 (10%)</span>
-                  <span className="tabular-nums text-foreground">
-                    {!form.taxable
-                      ? '비과세'
-                      : formatWon(
-                          form.vatIncluded
-                            ? parsedAmount - Math.round(parsedAmount / 1.1)
-                            : Math.round(parsedAmount * 0.1),
-                        )}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <Field label="메모">
-              <textarea
-                rows={2}
-                placeholder="선택 입력"
-                value={form.memo}
-                onChange={(e) => setForm((f) => ({ ...f, memo: e.target.value }))}
-                className="input resize-none"
-              />
-            </Field>
-
-            <Button type="submit" disabled={!canSubmit} data-icon="inline-start">
-              <Plus /> 등록하기
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadCsv}
+              disabled={sorted.length === 0}
+              className="gap-1.5"
+            >
+              <Download className="size-4" /> CSV 다운로드
             </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>입력 내역</CardTitle>
-          <CardDescription>총 {sorted.length}건</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {sorted.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">
-              아직 입력한 내역이 없습니다.
-            </p>
-          ) : (
-            <ul className="flex flex-col divide-y divide-border">
-              {sorted.map((entry) => (
-                <LedgerRow key={entry.id} entry={entry} />
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+          </CardHeader>
+          <CardContent>
+            {sorted.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                아직 입력한 내역이 없습니다.
+              </p>
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {sorted.map((entry) => (
+                  <LedgerRow key={entry.id} entry={entry} />
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
