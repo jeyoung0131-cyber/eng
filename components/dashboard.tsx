@@ -59,9 +59,9 @@ export function Dashboard() {
         <h2 className="text-2xl font-bold tracking-tight">대시보드</h2>
       </div>
 
-      {/* 핵심 지표 (미수금 현황과 순이익 위치 교체) */}
+      {/* 핵심 지표 카드리스트 */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {/* 1. 총 매출 */}
+        {/* [1줄 - 1] 총 매출 */}
         <StatCard
           label="총 매출 (공급가액)"
           value={formatWon(totals.sales)}
@@ -69,7 +69,7 @@ export function Dashboard() {
           tone="primary"
           hint={`거래 ${projects.length}건`}
         />
-        {/* 2. 총 지출 */}
+        {/* [1줄 - 2] 총 지출 */}
         <StatCard
           label="총 지출 (공급가액)"
           value={formatWon(totals.expenses)}
@@ -77,31 +77,7 @@ export function Dashboard() {
           tone="muted"
           hint={`지출 ${totalExpenseCount}건`}
         />
-        {/* 3. 미수금 현황 (위치 이동) */}
-        <StatCard
-          label="미수금 현황"
-          value={formatWon(totals.outstanding)}
-          icon={<Wallet className="size-5" />}
-          tone="destructive"
-          hint={`입금 완료 ${formatWon(totals.received)}`}
-        />
-        {/* 4. 납부예상 부가세 */}
-        <StatCard
-          label="납부예상 부가세 (10%)"
-          value={formatWon(totals.vatPayable)}
-          icon={<Receipt className="size-5" />}
-          tone="warning"
-          hint={`매출세액 ${formatWon(totals.salesVat)} · 매입세액 ${formatWon(totals.purchaseVat)}`}
-        />
-        {/* 5. 원천징수 */}
-        <StatCard
-          label="원천징수 (3.3%)"
-          value={formatWon(totals.withholding)}
-          icon={<Landmark className="size-5" />}
-          tone="muted"
-          hint="사업소득 원천징수 합계"
-        />
-        {/* 6. 순이익 (위치 이동) */}
+        {/* [1줄 - 3] 순이익 (최상단 우측) */}
         <StatCard
           label="순이익 (매출 - 지출)"
           value={formatWon(netProfit)}
@@ -114,13 +90,39 @@ export function Dashboard() {
           }
           tone={netProfit >= 0 ? 'success' : 'destructive'}
         />
-        {/* 7. 실보유 순자금 */}
+
+        {/* [2줄 - 1] 납부예상 부가세 */}
+        <StatCard
+          label="납부예상 부가세 (10%)"
+          value={formatWon(totals.vatPayable)}
+          icon={<Receipt className="size-5" />}
+          tone="warning"
+          hint={`매출세액 ${formatWon(totals.salesVat)} · 매입세액 ${formatWon(totals.purchaseVat)}`}
+        />
+        {/* [2줄 - 2] 원천징수 */}
+        <StatCard
+          label="원천징수 (3.3%)"
+          value={formatWon(totals.withholding)}
+          icon={<Landmark className="size-5" />}
+          tone="muted"
+          hint="사업소득 원천징수 합계"
+        />
+        {/* [2줄 - 3] 실보유 순자금 (중간 우측) */}
         <StatCard
           label="실보유 순자금 (부가세 제외)"
           value={formatWon(totals.netCash ?? 0)}
           icon={<PiggyBank className="size-5" />}
           tone="success"
-          hint="통장 입금액 - 총지출 - 부가세예정액"
+          hint="통장 입금액 - 총지출"
+        />
+
+        {/* [3줄 - 1] 미수금 현황 (최하단) */}
+        <StatCard
+          label="미수금 현황"
+          value={formatWon(totals.outstanding)}
+          icon={<Wallet className="size-5" />}
+          tone="destructive"
+          hint={`입금 완료 ${formatWon(totals.received)}`}
         />
       </div>
 
