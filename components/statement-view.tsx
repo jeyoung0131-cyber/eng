@@ -30,13 +30,21 @@ type SavedItem = {
   price: number
 }
 
+type SavedMemo = {
+  id: string
+  title: string
+  content: string
+}
+
 export function StatementView() {
   const [tradeDate, setTradeDate] = useState(() => {
     const today = new Date()
     return today.toISOString().split('T')[0]
   })
+
+  // 담당사원 & 참고사항 상태
   const [manager, setManager] = useState('')
-  const [memo, setMemo] = useState('') // 미수금 및 참고사항 메모
+  const [memo, setMemo] = useState('')
 
   // 공급자 정보 (내 회사)
   const [supplier, setSupplier] = useState<CompanyInfo>({
@@ -71,18 +79,26 @@ export function StatementView() {
   const [deposit, setDeposit] = useState<number>(0)       // 입금액
   const [prevBalance, setPrevBalance] = useState<number>(0) // 전잔액
 
-  // --- 저장소 (LocalStorage) 관련 상태 ---
+  // --- 저장소 (LocalStorage) 데이터 상태 ---
   const [savedReceivers, setSavedReceivers] = useState<CompanyInfo[]>([])
   const [savedItems, setSavedItems] = useState<SavedItem[]>([])
+  const [savedManagers, setSavedManagers] = useState<string[]>([])
+  const [savedMemos, setSavedMemos] = useState<SavedMemo[]>([])
+
   const [selectedReceiverName, setSelectedReceiverName] = useState('')
 
   // 모달 상태
   const [isReceiverModalOpen, setIsReceiverModalOpen] = useState(false)
   const [isItemModalOpen, setIsItemModalOpen] = useState(false)
+  const [isManagerModalOpen, setIsManagerModalOpen] = useState(false)
+  const [isMemoModalOpen, setIsMemoModalOpen] = useState(false)
 
   // 수정용 임시 상태
   const [editingReceiver, setEditingReceiver] = useState<CompanyInfo | null>(null)
   const [editingItem, setEditingItem] = useState<SavedItem | null>(null)
+  const [editingManagerIndex, setEditingManagerIndex] = useState<number | null>(null)
+  const [editingManagerText, setEditingManagerText] = useState('')
+  const [editingMemo, setEditingMemo] = useState<SavedMemo | null>(null)
 
   // 첫 로드 시 브라우저에 저장된 데이터 불러오기
   useEffect(() => {
@@ -99,6 +115,16 @@ export function StatementView() {
     const loadedItems = localStorage.getItem('saved_master_items')
     if (loadedItems) {
       try { setSavedItems(JSON.parse(loadedItems)) } catch (e) {}
+    }
+
+    const loadedManagers = localStorage.getItem('saved_managers')
+    if (loadedManagers) {
+      try { setSavedManagers(JSON.parse(loadedManagers)) } catch (e) {}
+    }
+
+    const loadedMemos = localStorage.getItem('saved_memos')
+    if (loadedMemos) {
+      try { setSavedMemos(JSON.parse(loadedMemos)) } catch (e) {}
     }
   }, [])
 
@@ -149,7 +175,78 @@ export function StatementView() {
     alert('거래처 정보가 수정되었습니다.')
   }
 
-  // 3. 품목 마스터 저장 / 수정 / 삭제
+  // 3. 담당사원 저장 / 수정 / 삭제
+  const saveCurrentManager = () => {
+    if (!manager.trim()) {
+      alert('담당사원 이름을 입력해주세요.')
+      return
+    }
+    if (savedManagers.includes(manager.trim())) {
+      alert('이미 저장되어 있는 담당사원입니다.')
+      return
+    }
+    const updated = [...savedManagers, manager.trim()]
+    setSavedManagers(updated)
+    localStorage.setItem('saved_managers', JSON.stringify(updated))
+    alert(`담당사원 [${manager.trim()}]이(가) 저장되었습니다.`)
+  }
+
+  const deleteManager = (name: string) => {
+    if (!confirm(`담당사원 [${name}]을(를) 삭제하시겠습니까?`)) return
+    const updated = savedManagers.filter((m) => m !== name)
+    setSavedManagers(updated)
+    localStorage.setItem('saved_managers', JSON.stringify(updated))
+  }
+
+  const updateManagerInModal = () => {
+    if (editingManagerIndex === null || !editingManagerText.trim()) return
+    const updated = [...savedManagers]
+    updated[editingManagerIndex] = editingManagerText.trim()
+    setSavedManagers(updated)
+    localStorage.setItem('saved_managers', JSON.stringify(updated))
+    setEditingManagerIndex(null)
+    setEditingManagerText('')
+    alert('담당사원이 수정되었습니다.')
+  }
+
+  // 4. 참고사항(메모) 저장 / 수정 / 삭제
+  const saveCurrentMemo = () => {
+    if (!memo.trim()) {
+      alert('참고사항 내용을 입력해주세요.')
+      return
+    }
+    const title = prompt('참고사항 식별용 제목을 입력하세요 (예: 기본 농협계좌, 출고안내 등)', '기본 계좌안내')
+    if (!title) return
+
+    const newMemo: SavedMemo = {
+      id: Date.now().toString(),
+      title: title.trim(),
+      content: memo.trim(),
+    }
+    const updated = [...savedMemos, newMemo]
+    setSavedMemos(updated)
+    localStorage.setItem('saved_memos', JSON.stringify(updated))
+    alert(`[${title}] 참고사항이 저장되었습니다.`)
+  }
+
+  const deleteMemo = (id: string) => {
+    if (!confirm('해당 참고사항을 삭제하시겠습니까?')) return
+    const updated = savedMemos.filter((m) => m.id !== id)
+    setSavedMemos(updated)
+    localStorage.setItem('saved_memos', JSON.stringify(updated))
+    if (editingMemo?.id === id) setEditingMemo(null)
+  }
+
+  const updateMemoInModal = () => {
+    if (!editingMemo) return
+    const updated = savedMemos.map((m) => (m.id === editingMemo.id ? editingMemo : m))
+    setSavedMemos(updated)
+    localStorage.setItem('saved_memos', JSON.stringify(updated))
+    setEditingMemo(null)
+    alert('참고사항이 수정되었습니다.')
+  }
+
+  // 5. 품목 마스터 저장 / 수정 / 삭제
   const saveToItemMaster = (item: ItemRow) => {
     if (!item.nameSpec) {
       alert('품명-규격을 입력해주세요.')
@@ -236,7 +333,7 @@ export function StatementView() {
         <div>
           <h2 className="text-base font-bold">거래명세서 작성 및 관리</h2>
           <p className="text-xs text-muted-foreground">
-            저장된 거래처 및 품목을 불러오거나 관리 모달에서 언제든지 수정/삭제할 수 있습니다.
+            담당사원, 참고사항, 거래처, 품목을 자유롭게 저장 및 수정하여 빠르게 명세서를 작성할 수 있습니다.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -259,15 +356,47 @@ export function StatementView() {
               className="w-full h-8 px-2 border rounded bg-background"
             />
           </div>
+
+          {/* 담당사원 영역 */}
           <div className="space-y-1.5">
-            <label className="font-bold text-foreground">담당사원</label>
-            <input
-              type="text"
-              value={manager}
-              onChange={(e) => setManager(e.target.value)}
-              placeholder="담당자 이름"
-              className="w-full h-8 px-2 border rounded bg-background"
-            />
+            <div className="flex justify-between items-center">
+              <label className="font-bold text-foreground">담당사원</label>
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="outline" onClick={saveCurrentManager} className="h-5 text-[10px] px-1.5 gap-1">
+                  <Save className="size-3" /> 저장
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setIsManagerModalOpen(true)} className="h-5 text-[10px] px-1.5 gap-1">
+                  <Settings className="size-3" /> 관리
+                </Button>
+              </div>
+            </div>
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={manager}
+                onChange={(e) => setManager(e.target.value)}
+                placeholder="담당자 이름"
+                className="flex-1 h-8 px-2 border rounded bg-background"
+              />
+              {savedManagers.length > 0 && (
+                <select
+                  onChange={(e) => {
+                    if (e.target.value) setManager(e.target.value)
+                  }}
+                  className="h-8 text-xs border rounded bg-background px-1 max-w-[120px]"
+                  value=""
+                >
+                  <option value="" disabled>
+                    불러오기
+                  </option>
+                  {savedManagers.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
         </div>
 
@@ -377,7 +506,6 @@ export function StatementView() {
                   className="flex-1 min-w-[140px] h-8 px-2 border rounded bg-background"
                 />
 
-                {/* 단위: 기본 EA 고정 및 셀렉트 박스 */}
                 <select
                   value={item.unit || 'EA'}
                   onChange={(e) => updateItemRow(item.id, 'unit', e.target.value)}
@@ -466,14 +594,43 @@ export function StatementView() {
             </div>
           </div>
 
-          {/* 참고사항 입력란 */}
+          {/* 참고사항(메모) 영역 */}
           <div className="space-y-1">
-            <label className="font-bold text-foreground">미수금 및 참고사항</label>
+            <div className="flex justify-between items-center">
+              <label className="font-bold text-foreground">미수금 및 참고사항</label>
+              <div className="flex items-center gap-2">
+                {savedMemos.length > 0 && (
+                  <select
+                    onChange={(e) => {
+                      const found = savedMemos.find((m) => m.id === e.target.value)
+                      if (found) setMemo(found.content)
+                    }}
+                    className="h-6 text-[11px] px-1 border rounded bg-background max-w-[150px]"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      불러오기
+                    </option>
+                    {savedMemos.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.title}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <Button size="sm" variant="outline" onClick={saveCurrentMemo} className="h-5 text-[10px] px-1.5 gap-1">
+                  <Save className="size-3" /> 문구 저장
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setIsMemoModalOpen(true)} className="h-5 text-[10px] px-1.5 gap-1">
+                  <Settings className="size-3" /> 관리
+                </Button>
+              </div>
+            </div>
             <textarea
               rows={2}
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
-              placeholder="예: 계좌번호(국민 123-456-789), 출고 방식, 미수금 관련 메모 등 자유롭게 기재"
+              placeholder="예: 국민은행 123-456-789 (예금주: 홍길동) / 입금 확인 후 출고됩니다."
               className="w-full p-2 border rounded bg-background resize-none text-xs"
             />
           </div>
@@ -524,7 +681,124 @@ export function StatementView() {
         />
       </div>
 
-      {/* --- 모달 1: 거래처 관리/수정/삭제 모달 --- */}
+      {/* --- 모달 1: 담당사원 관리/수정/삭제 --- */}
+      {isManagerModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border rounded-xl w-full max-w-md p-4 space-y-4 shadow-lg">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-bold text-base">저장된 담당사원 관리</h3>
+              <Button variant="ghost" size="icon" onClick={() => setIsManagerModalOpen(false)}>
+                <X className="size-4" />
+              </Button>
+            </div>
+
+            <div className="max-h-52 overflow-y-auto space-y-2 border-b pb-3">
+              {savedManagers.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">저장된 담당사원이 없습니다.</p>
+              ) : (
+                savedManagers.map((m, idx) => (
+                  <div key={idx} className="flex justify-between items-center bg-muted/40 p-2 rounded">
+                    <span className="font-bold">{m}</span>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingManagerIndex(idx)
+                          setEditingManagerText(m)
+                        }}
+                        className="h-7 text-xs gap-1"
+                      >
+                        <Edit3 className="size-3" /> 수정
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteManager(m)} className="h-7 text-xs">
+                        삭제
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {editingManagerIndex !== null && (
+              <div className="space-y-2 bg-muted/20 p-3 rounded border">
+                <h4 className="font-bold text-xs text-primary">담당사원 이름 수정</h4>
+                <input
+                  value={editingManagerText}
+                  onChange={(e) => setEditingManagerText(e.target.value)}
+                  className="w-full h-8 px-2 border rounded bg-background"
+                />
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button size="sm" variant="ghost" onClick={() => setEditingManagerIndex(null)}>취소</Button>
+                  <Button size="sm" onClick={updateManagerInModal}>수정 저장</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- 모달 2: 참고사항(메모) 관리/수정/삭제 --- */}
+      {isMemoModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border rounded-xl w-full max-w-lg p-4 space-y-4 shadow-lg">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-bold text-base">저장된 참고사항 문구 관리</h3>
+              <Button variant="ghost" size="icon" onClick={() => setIsMemoModalOpen(false)}>
+                <X className="size-4" />
+              </Button>
+            </div>
+
+            <div className="max-h-52 overflow-y-auto space-y-2 border-b pb-3">
+              {savedMemos.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">저장된 참고사항이 없습니다.</p>
+              ) : (
+                savedMemos.map((m) => (
+                  <div key={m.id} className="flex justify-between items-start bg-muted/40 p-2 rounded">
+                    <div className="space-y-1 pr-2">
+                      <p className="font-bold text-primary">{m.title}</p>
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap">{m.content}</p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button size="sm" variant="outline" onClick={() => setEditingMemo(m)} className="h-7 text-xs gap-1">
+                        <Edit3 className="size-3" /> 수정
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteMemo(m.id)} className="h-7 text-xs">
+                        삭제
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {editingMemo && (
+              <div className="space-y-2 bg-muted/20 p-3 rounded border">
+                <h4 className="font-bold text-xs text-primary">참고사항 수정</h4>
+                <input
+                  placeholder="제목"
+                  value={editingMemo.title}
+                  onChange={(e) => setEditingMemo({ ...editingMemo, title: e.target.value })}
+                  className="w-full h-8 px-2 border rounded bg-background font-bold"
+                />
+                <textarea
+                  rows={2}
+                  placeholder="내용"
+                  value={editingMemo.content}
+                  onChange={(e) => setEditingMemo({ ...editingMemo, content: e.target.value })}
+                  className="w-full p-2 border rounded bg-background resize-none"
+                />
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button size="sm" variant="ghost" onClick={() => setEditingMemo(null)}>취소</Button>
+                  <Button size="sm" onClick={updateMemoInModal}>수정 저장</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- 모달 3: 거래처 관리/수정/삭제 모달 --- */}
       {isReceiverModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-xl w-full max-w-lg p-4 space-y-4 shadow-lg">
@@ -535,7 +809,6 @@ export function StatementView() {
               </Button>
             </div>
 
-            {/* 거래처 목록 */}
             <div className="max-h-48 overflow-y-auto space-y-2 border-b pb-3">
               {savedReceivers.length === 0 ? (
                 <p className="text-center text-muted-foreground py-4">저장된 거래처가 없습니다.</p>
@@ -559,7 +832,6 @@ export function StatementView() {
               )}
             </div>
 
-            {/* 거래처 수정 폼 */}
             {editingReceiver && (
               <div className="space-y-2 bg-muted/20 p-3 rounded border">
                 <h4 className="font-bold text-xs text-primary">[{editingReceiver.name}] 정보 수정</h4>
@@ -582,7 +854,7 @@ export function StatementView() {
         </div>
       )}
 
-      {/* --- 모달 2: 자주 쓰는 품목 관리/수정/삭제 모달 --- */}
+      {/* --- 모달 4: 자주 쓰는 품목 관리/수정/삭제 모달 --- */}
       {isItemModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-xl w-full max-w-lg p-4 space-y-4 shadow-lg">
@@ -593,7 +865,6 @@ export function StatementView() {
               </Button>
             </div>
 
-            {/* 품목 목록 */}
             <div className="max-h-48 overflow-y-auto space-y-2 border-b pb-3">
               {savedItems.length === 0 ? (
                 <p className="text-center text-muted-foreground py-4">저장된 품목이 없습니다.</p>
@@ -619,7 +890,6 @@ export function StatementView() {
               )}
             </div>
 
-            {/* 품목 수정 폼 */}
             {editingItem && (
               <div className="space-y-2 bg-muted/20 p-3 rounded border">
                 <h4 className="font-bold text-xs text-primary">품목 정보 수정</h4>
