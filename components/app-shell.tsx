@@ -1,215 +1,413 @@
 'use client'
 
+
+
 import { useState } from 'react'
+
 import {
+
   BarChart3,
+
   BookOpen,
+
   Download,
-  FileText,
+
   RotateCcw,
+
   Users,
+
 } from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
+
 import { Dashboard } from '@/components/dashboard'
+
 import { LedgerView } from '@/components/ledger-view'
+
 import { ClientsView } from '@/components/clients-view'
-import { StatementView } from '@/components/statement-view'
+
 import { ThemeToggle } from '@/components/theme-toggle'
+
 import { useFinance } from '@/components/finance-provider'
 
+
+
 export function AppShell() {
-  const [tab, setTab] = useState<'dashboard' | 'ledger' | 'clients' | 'statement'>('dashboard')
+
+  const [tab, setTab] = useState<'dashboard' | 'ledger' | 'clients'>('dashboard')
+
   const { ledger, totals, resetAll } = useFinance()
 
+
+
   // 엑셀 내 숫자에 천단위 쉼표 추가 함수
+
   const formatNum = (num: number) => `"${(num || 0).toLocaleString('ko-KR')}"`
 
+
+
   // 네이버 웨일 및 엑셀 완벽 지원 CSV 다운로드
+
   const handleDownloadCsv = (e: React.MouseEvent) => {
+
     e.preventDefault()
 
+
+
     if (!ledger || ledger.length === 0) {
+
       alert('다운로드할 장부 데이터가 없습니다.')
+
       return
+
     }
+
+
 
     const todayStr = new Date().toISOString().slice(0, 10)
 
-    // 1. 재무 요약 리포트
+
+
+    // 1. 재무 요약 리포트 (부가세, 원천징수 제거 및 깔끔한 정리)
+
     const summaryRows = [
+
       ['[ 재무 요약 리포트 ]'],
+
       ['총 매출', formatNum(totals.sales)],
+
       ['총 지출', formatNum(totals.expenses)],
+
       ['순이익', formatNum(totals.sales - totals.expenses)],
+
       ['미수금', formatNum(totals.outstanding)],
+
       ['실보유 순자금', formatNum(totals.netCash ?? 0)],
+
       [],
+
     ]
 
-    // 2. 전체 장부 내역
+
+
+    // 2. 전체 장부 내역 (부가세포함, 과세여부 컬럼 제거)
+
     const ledgerHeader = ['[ 전체 장부 내역 ]']
+
     const ledgerColumns = ['구분', '날짜', '거래처명', '결제수단', '금액(원)', '메모']
+
     
+
     const ledgerData = ledger.map((item) => {
+
       const paymentLabel = 
+
         item.paymentMethod === 'transfer' ? '계좌이체' :
+
         item.paymentMethod === 'card' ? '카드' :
+
         item.paymentMethod === 'cash' ? '현금' : '기타'
 
+
+
       return [
+
         item.kind === 'sale' ? '매출' : '지출',
+
         item.date,
+
         `"${(item.party || '').replace(/"/g, '""')}"`,
+
         paymentLabel,
+
         formatNum(item.amount),
+
         `"${(item.memo || '').replace(/"/g, '""')}"`,
+
       ]
+
     })
 
+
+
     const csvContent = [
+
       ...summaryRows.map((r) => r.join(',')),
+
       ledgerHeader.join(','),
+
       ledgerColumns.join(','),
+
       ...ledgerData.map((r) => r.join(',')),
+
     ].join('\n')
 
+
+
     const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+
     const url = URL.createObjectURL(blob)
 
+
+
     let iframe = document.getElementById('hidden-download-iframe') as HTMLIFrameElement
+
     if (!iframe) {
+
       iframe = document.createElement('iframe')
+
       iframe.id = 'hidden-download-iframe'
+
       iframe.style.display = 'none'
+
       document.body.appendChild(iframe)
+
     }
+
+
 
     const link = document.createElement('a')
+
     link.href = url
+
     link.download = `대시보드_재무리포트_${todayStr}.csv`
 
+
+
     if (iframe.contentDocument) {
+
       iframe.contentDocument.body.appendChild(link)
+
       link.click()
+
     } else {
+
       document.body.appendChild(link)
+
       link.click()
+
       document.body.removeChild(link)
+
     }
 
+
+
     setTimeout(() => URL.revokeObjectURL(url), 1000)
+
   }
 
+
+
   return (
+
     <div className="min-h-screen bg-background text-foreground">
-      {/* GNB / Header (인쇄 시 숨김) */}
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur print:hidden">
+
+      {/* GNB / Header */}
+
+      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
+
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+
           <div className="flex items-center gap-3">
+
             <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+
               <BarChart3 className="size-5" />
+
             </div>
+
             <div>
+
               <h1 className="text-base font-bold leading-tight">세무·자금 통합 관리</h1>
+
               <p className="text-xs text-muted-foreground">소규모 제조업 대시보드</p>
+
             </div>
+
           </div>
+
+
 
           <div className="flex items-center gap-2">
+
             <Button
+
               type="button"
+
               variant="ghost"
+
               size="sm"
+
               onClick={() => {
+
                 if (confirm('모든 데이터가 초기화됩니다. 계속하시겠습니까?')) {
+
                   resetAll()
+
                 }
+
               }}
+
               className="gap-1.5 text-xs text-muted-foreground"
+
             >
+
               <RotateCcw className="size-3.5" /> 초기화
+
             </Button>
+
             
+
+            {/* 상단 엑셀 다운로드 버튼 */}
+
             <Button
+
               type="button"
+
               variant="outline"
+
               size="sm"
+
               onClick={handleDownloadCsv}
+
               className="gap-1.5 text-xs"
+
             >
+
               <Download className="size-3.5" /> 엑셀 다운로드
+
             </Button>
+
+
+
+            {/* 기존 프로젝트의 ThemeToggle 컴포넌트 사용 */}
 
             <ThemeToggle />
+
           </div>
+
         </div>
+
+
 
         {/* Navigation Tabs */}
+
         <div className="border-t border-border/50 bg-muted/30 px-4 sm:px-6">
+
           <div className="mx-auto flex max-w-7xl items-center gap-1 py-1.5">
+
             <TabButton
+
               active={tab === 'dashboard'}
+
               onClick={() => setTab('dashboard')}
+
               icon={<BarChart3 className="size-4" />}
+
               label="대시보드"
+
             />
+
             <TabButton
+
               active={tab === 'ledger'}
+
               onClick={() => setTab('ledger')}
+
               icon={<BookOpen className="size-4" />}
+
               label="장부 작성"
+
             />
+
             <TabButton
+
               active={tab === 'clients'}
+
               onClick={() => setTab('clients')}
+
               icon={<Users className="size-4" />}
+
               label="거래처·대금 관리"
+
             />
-            {/* 거래명세표 탭 추가 */}
-            <TabButton
-              active={tab === 'statement'}
-              onClick={() => setTab('statement')}
-              icon={<FileText className="size-4" />}
-              label="거래명세표"
-            />
+
           </div>
+
         </div>
+
       </header>
 
+
+
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 print:p-0 print:max-w-none">
+
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+
         {tab === 'dashboard' && <Dashboard />}
+
         {tab === 'ledger' && <LedgerView />}
+
         {tab === 'clients' && <ClientsView />}
-        {tab === 'statement' && <StatementView />}
+
       </main>
+
     </div>
+
   )
+
 }
 
+
+
 function TabButton({
+
   active,
+
   onClick,
+
   icon,
+
   label,
+
 }: {
+
   active: boolean
+
   onClick: () => void
+
   icon: React.ReactNode
+
   label: string
+
 }) {
+
   return (
+
     <button
+
       type="button"
+
       onClick={onClick}
+
       className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+
         active
+
           ? 'bg-background text-foreground shadow-sm'
+
           : 'text-muted-foreground hover:bg-background/50 hover:text-foreground'
+
       }`}
+
     >
+
       {icon}
+
       <span>{label}</span>
+
     </button>
+
   )
+
 }
