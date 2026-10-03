@@ -21,7 +21,7 @@ type CompanyInfo = {
   bizItem: string
   tel: string
   fax: string
-  sealUrl?: string // 도장 이미지 (Base64)
+  sealUrl?: string // 도장 이미지 (Base64 또는 기본 이미지 경로)
 }
 
 type SavedItem = {
@@ -37,6 +37,9 @@ type SavedMemo = {
   content: string
 }
 
+// 기본 제공해주신 도장 이미지 경로 (Public 폴더에 넣거나 Base64/외부 경로로 활용 가능)
+const DEFAULT_SEAL_URL = '/images/seal.png' // 또는 업로드된 도장 데이터
+
 export function StatementView() {
   const [tradeDate, setTradeDate] = useState(() => {
     const today = new Date()
@@ -47,17 +50,17 @@ export function StatementView() {
   const [manager, setManager] = useState('')
   const [memo, setMemo] = useState('')
 
-  // 공급자 정보 (내 회사)
+  // 공급자 정보 (내 회사) - 기본 도장 이미지 기본값 반영
   const [supplier, setSupplier] = useState<CompanyInfo>({
-    bizNo: '',
-    name: '',
-    owner: '',
-    address: '',
-    bizType: '',
-    bizItem: '',
-    tel: '',
+    bizNo: '239-40-01559',
+    name: '한전열이엔지',
+    owner: '박제영',
+    address: '부산광역시 서구 수송로3번길 2',
+    bizType: '도매 및 소매업',
+    bizItem: '전자상거래 소매업',
+    tel: '010-5520-5338',
     fax: '',
-    sealUrl: '',
+    sealUrl: '/fc7b20f1-92cd-4885-9316-c919271c9fff.png', // 기본 도장 적용
   })
 
   // 공급받는자 정보 (거래처)
@@ -108,7 +111,12 @@ export function StatementView() {
   useEffect(() => {
     const loadedSupplier = localStorage.getItem('my_supplier_info')
     if (loadedSupplier) {
-      try { setSupplier(JSON.parse(loadedSupplier)) } catch (e) {}
+      try { 
+        const parsed = JSON.parse(loadedSupplier)
+        // 저장된 정보에 도장이 없으면 기본 도장 채우기
+        if (!parsed.sealUrl) parsed.sealUrl = '/fc7b20f1-92cd-4885-9316-c919271c9fff.png'
+        setSupplier(parsed) 
+      } catch (e) {}
     }
 
     const loadedReceivers = localStorage.getItem('saved_receivers')
@@ -999,17 +1007,17 @@ function StatementPaper({
           </tr>
           <tr>
             <td className="border border-current font-semibold py-1">상호</td>
-            <td className="border border-current text-left px-2 font-bold relative">
-              {supplier.name}
-              {/* 등록된 도장이 있으면 상호명 우측에 인감 오버레이 */}
+            <td className="border border-current text-left px-2 font-bold">{supplier.name}</td>
+            <td className="border border-current w-9 font-semibold">성명</td>
+            {/* 성명 칸에 도장을 성명 글자와 겹치지 않게 우측 옆 공간으로 배치 */}
+            <td className="border border-current text-left px-2 relative">
+              <span>{supplier.owner}</span>
               {supplier.sealUrl && (
-                <div className="absolute right-1 -top-3 size-10 z-10 pointer-events-none flex items-center justify-center">
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 size-9 z-10 pointer-events-none flex items-center justify-center">
                   <img src={supplier.sealUrl} alt="직인" className="max-h-full max-w-full object-contain opacity-90 mix-blend-multiply" />
                 </div>
               )}
             </td>
-            <td className="border border-current w-9 font-semibold">성명</td>
-            <td className="border border-current text-left px-2">{supplier.owner}</td>
             <td className="border border-current font-semibold">상호</td>
             <td className="border border-current text-left px-2 font-bold">{receiver.name}</td>
             <td className="border border-current w-9 font-semibold">성명</td>
