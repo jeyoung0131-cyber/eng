@@ -109,6 +109,19 @@ export function LedgerView() {
   const parsedAmount = parseAmount(form.amount)
   const canSubmit = form.party.trim().length > 0 && parsedAmount > 0
 
+  // 공급가액 및 부가세 미리 계산 헬퍼
+  const calculatedSupply = useMemo(() => {
+    if (!form.taxable) return parsedAmount
+    return form.vatIncluded ? Math.round(parsedAmount / 1.1) : parsedAmount
+  }, [parsedAmount, form.taxable, form.vatIncluded])
+
+  const calculatedVat = useMemo(() => {
+    if (!form.taxable) return 0
+    return form.vatIncluded
+      ? parsedAmount - calculatedSupply
+      : Math.round(parsedAmount * 0.1)
+  }, [parsedAmount, form.taxable, form.vatIncluded, calculatedSupply])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!canSubmit) return
@@ -117,6 +130,7 @@ export function LedgerView() {
     const partyName = form.party.trim()
     const memoText = form.memo.trim()
 
+    // 1. 거래장부(Ledger) 추가
     addLedger({
       date: ledgerDate,
       party: partyName,
@@ -128,25 +142,16 @@ export function LedgerView() {
       memo: memoText,
     })
 
+    // 2. 지출(Expense) 추가
     if (form.kind === 'expense') {
-      const isTaxableOrWithholding = form.taxable || form.withholding
-
-      if (isTaxableOrWithholding) {
-        const supplyAmt = !form.taxable
-          ? parsedAmount
-          : form.vatIncluded
-            ? Math.round(parsedAmount / 1.1)
-            : parsedAmount
-
-        addExpense({
-          date: ledgerDate,
-          vendor: partyName,
-          category: form.category,
-          supplyAmount: supplyAmt,
-          description: memoText || `${form.category} 지출`,
-          withholding: form.withholding,
-        })
-      }
+      addExpense({
+        date: ledgerDate,
+        vendor: partyName,
+        category: form.category,
+        supplyAmount: calculatedSupply,
+        description: memoText || `${form.category} 지출`,
+        withholding: form.withholding,
+      })
     }
 
     setForm(emptyForm())
@@ -345,25 +350,13 @@ export function LedgerView() {
                   <div className="flex justify-between gap-2">
                     <span className="shrink-0">공급가액</span>
                     <span className="tabular-nums text-foreground truncate">
-                      {formatWon(
-                        !form.taxable
-                          ? parsedAmount
-                          : form.vatIncluded
-                            ? Math.round(parsedAmount / 1.1)
-                            : parsedAmount,
-                      )}
+                      {formatWon(calculatedSupply)}
                     </span>
                   </div>
                   <div className="mt-1 flex justify-between gap-2">
                     <span className="shrink-0">부가세 (10%)</span>
                     <span className="tabular-nums text-foreground truncate">
-                      {!form.taxable
-                        ? '비과세'
-                        : formatWon(
-                            form.vatIncluded
-                              ? parsedAmount - Math.round(parsedAmount / 1.1)
-                              : Math.round(parsedAmount * 0.1),
-                          )}
+                      {!form.taxable ? '비과세' : formatWon(calculatedVat)}
                     </span>
                   </div>
                 </div>
@@ -489,6 +482,18 @@ function ExpenseRow({ expense }: { expense: Expense }) {
     withholding: expense.withholding,
   })
 
+  const startEdit = () => {
+    setDraft({
+      date: expense.date,
+      vendor: expense.vendor,
+      description: expense.description,
+      category: expense.category,
+      supplyAmount: Number(expense.supplyAmount).toLocaleString('ko-KR'),
+      withholding: expense.withholding,
+    })
+    setEditing(true)
+  }
+
   if (editing) {
     const parsed = parseAmount(draft.supplyAmount)
     const save = () => {
@@ -598,7 +603,7 @@ function ExpenseRow({ expense }: { expense: Expense }) {
       <div className="flex shrink-0 gap-0.5 sm:gap-1">
         <button
           type="button"
-          onClick={() => setEditing(true)}
+          onClick={startEdit}
           aria-label="수정"
           className="rounded-md p-1 sm:p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
@@ -634,6 +639,22 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
   })
 
   const isSale = entry.kind === 'sale'
+
+  const startEdit = () => {
+    setDraft({
+      date: entry.date,
+      party: entry.party,
+      kind: entry.kind,
+      category: '경비',
+      amount: Number(entry.amount).toLocaleString('ko-KR'),
+      vatIncluded: entry.vatIncluded,
+      taxable: entry.taxable !== false,
+      withholding: false,
+      paymentMethod: entry.paymentMethod || 'transfer',
+      memo: entry.memo,
+    })
+    setEditing(true)
+  }
 
   if (editing) {
     const parsed = parseAmount(draft.amount)
@@ -778,7 +799,7 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
       <div className="flex shrink-0 gap-0.5 sm:gap-1">
         <button
           type="button"
-          onClick={() => setEditing(true)}
+          onClick={startEdit}
           aria-label="수정"
           className="rounded-md p-1 sm:p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
