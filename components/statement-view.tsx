@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Printer, Plus, Trash2, Save, Settings, Edit3, X } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Printer, Plus, Trash2, Save, Settings, Edit3, X, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 type ItemRow = {
@@ -21,6 +21,7 @@ type CompanyInfo = {
   bizItem: string
   tel: string
   fax: string
+  sealUrl?: string // 도장 이미지 (Base64)
 }
 
 type SavedItem = {
@@ -56,6 +57,7 @@ export function StatementView() {
     bizItem: '',
     tel: '',
     fax: '',
+    sealUrl: '',
   })
 
   // 공급받는자 정보 (거래처)
@@ -100,6 +102,8 @@ export function StatementView() {
   const [editingManagerText, setEditingManagerText] = useState('')
   const [editingMemo, setEditingMemo] = useState<SavedMemo | null>(null)
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   // 첫 로드 시 브라우저에 저장된 데이터 불러오기
   useEffect(() => {
     const loadedSupplier = localStorage.getItem('my_supplier_info')
@@ -131,7 +135,19 @@ export function StatementView() {
   // 1. 내 회사 정보 저장
   const saveSupplierInfo = () => {
     localStorage.setItem('my_supplier_info', JSON.stringify(supplier))
-    alert('공급자(내 회사) 정보가 저장되었습니다.')
+    alert('공급자(내 회사) 정보 및 도장이 저장되었습니다.')
+  }
+
+  // 도장 이미지 업로드 핸들러
+  const handleSealUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (uploadEvent) => {
+      const result = uploadEvent.target?.result as string
+      setSupplier({ ...supplier, sealUrl: result })
+    }
+    reader.readAsDataURL(file)
   }
 
   // 2. 거래처 저장 / 수정 / 삭제
@@ -328,7 +344,7 @@ export function StatementView() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto p-2 sm:p-4 text-xs">
-      {/* 인쇄 전용 스타일: A4 세로 규격에 정확히 맞추어 꽉 채우도록 최적화 */}
+      {/* 인쇄 전용 스타일 */}
       <style jsx global>{`
         @media print {
           @page {
@@ -368,7 +384,7 @@ export function StatementView() {
         <div>
           <h2 className="text-base font-bold">거래명세서 작성 및 관리</h2>
           <p className="text-xs text-muted-foreground">
-            A4 용지 세로 크기에 완벽하게 꽉 차도록 세로 여백과 행 높이가 최적화되었습니다.
+            공급자 도장(직인) 날인이 포함된 A4 세로 최적화 거래명세서입니다.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -378,7 +394,7 @@ export function StatementView() {
         </div>
       </div>
 
-      {/* 1. 데이터 입력/수정 영역 (인쇄 시 숨김) */}
+      {/* 1. 데이터 입력/수정 영역 */}
       <div className="print:hidden bg-card p-4 rounded-xl border border-border space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
@@ -432,7 +448,7 @@ export function StatementView() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t">
           <div className="space-y-2">
             <div className="flex items-center justify-between border-b pb-1">
-              <h3 className="font-bold text-red-600">공급자 정보 (내 회사)</h3>
+              <h3 className="font-bold text-red-600">공급자 정보 (내 회사 & 도장)</h3>
               <Button size="sm" variant="outline" onClick={saveSupplierInfo} className="h-6 text-[11px] gap-1">
                 <Save className="size-3" /> 내 회사 정보 저장
               </Button>
@@ -446,6 +462,23 @@ export function StatementView() {
               <input placeholder="업태" value={supplier.bizType} onChange={(e) => setSupplier({ ...supplier, bizType: e.target.value })} className="h-8 px-2 border rounded bg-background" />
               <input placeholder="종목" value={supplier.bizItem} onChange={(e) => setSupplier({ ...supplier, bizItem: e.target.value })} className="h-8 px-2 border rounded bg-background" />
               <input placeholder="팩스" value={supplier.fax} onChange={(e) => setSupplier({ ...supplier, fax: e.target.value })} className="col-span-2 h-8 px-2 border rounded bg-background" />
+            </div>
+
+            {/* 도장 이미지 업로드 섹션 */}
+            <div className="flex items-center gap-3 pt-2 bg-muted/30 p-2 rounded border">
+              <div className="flex-1">
+                <span className="font-semibold text-foreground">회사 직인(도장) 이미지</span>
+                <p className="text-[10px] text-muted-foreground">배경이 투명한 PNG 도장 파일을 권장합니다.</p>
+              </div>
+              <input type="file" ref={fileInputRef} onChange={handleSealUpload} accept="image/*" className="hidden" />
+              <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="h-7 text-xs gap-1">
+                <Upload className="size-3.5" /> 도장 등록
+              </Button>
+              {supplier.sealUrl && (
+                <div className="relative size-8 border rounded bg-white flex items-center justify-center p-0.5">
+                  <img src={supplier.sealUrl} alt="도장" className="max-h-full max-w-full object-contain" />
+                </div>
+              )}
             </div>
           </div>
 
@@ -649,7 +682,7 @@ export function StatementView() {
         </div>
       </div>
 
-      {/* 2. 실제 A4 인쇄 양식 영역 (A4 세로 길이에 맞춰 꽉 차게 확대된 스타일) */}
+      {/* 2. 실제 A4 인쇄 양식 영역 */}
       <div className="bg-white p-3 space-y-1.5 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:container">
         {/* 상단 (공급자 보관용 - 빨간색) */}
         <StatementPaper
@@ -933,7 +966,7 @@ function StatementPaper({
   const emptyRows = Array.from({ length: emptyRowsCount })
 
   return (
-    <div className="w-full text-[11.5px] leading-tight font-sans select-none" style={{ color }}>
+    <div className="w-full text-[11.5px] leading-tight font-sans select-none relative" style={{ color }}>
       <div className="flex items-end justify-between mb-1.5">
         <div className="w-[30%] text-[11px]">
           거래일자 : <span className="font-bold border-b border-current px-1.5">{tradeDate}</span>
@@ -950,7 +983,7 @@ function StatementPaper({
       </div>
 
       {/* 공급자 / 공급받는자 헤더 테이블 */}
-      <table className="w-full border-collapse border border-current text-center mb-1.5">
+      <table className="w-full border-collapse border border-current text-center mb-1.5 relative">
         <tbody>
           <tr>
             <td rowSpan={5} className="border border-current w-4 font-bold text-[9.5px]" style={{ backgroundColor: bgLight }}>
@@ -966,7 +999,15 @@ function StatementPaper({
           </tr>
           <tr>
             <td className="border border-current font-semibold py-1">상호</td>
-            <td className="border border-current text-left px-2 font-bold">{supplier.name}</td>
+            <td className="border border-current text-left px-2 font-bold relative">
+              {supplier.name}
+              {/* 등록된 도장이 있으면 상호명 우측에 인감 오버레이 */}
+              {supplier.sealUrl && (
+                <div className="absolute right-1 -top-3 size-10 z-10 pointer-events-none flex items-center justify-center">
+                  <img src={supplier.sealUrl} alt="직인" className="max-h-full max-w-full object-contain opacity-90 mix-blend-multiply" />
+                </div>
+              )}
+            </td>
             <td className="border border-current w-9 font-semibold">성명</td>
             <td className="border border-current text-left px-2">{supplier.owner}</td>
             <td className="border border-current font-semibold">상호</td>
