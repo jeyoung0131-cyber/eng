@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Printer, Plus, Trash2, Save, FolderOpen } from 'lucide-react'
+import { Printer, Plus, Trash2, Save, Settings, Edit3, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 type ItemRow = {
   id: string
   nameSpec: string // 품명 - 규격
-  unit: string     // 단위
+  unit: string     // 단위 (기본 EA)
   qty: number      // 수량
   price: number    // 단가
 }
@@ -36,8 +36,9 @@ export function StatementView() {
     return today.toISOString().split('T')[0]
   })
   const [manager, setManager] = useState('')
+  const [memo, setMemo] = useState('') // 미수금 및 참고사항 메모
 
-  // 공급자 정보 (기본 공란 / 저장 가능)
+  // 공급자 정보 (내 회사)
   const [supplier, setSupplier] = useState<CompanyInfo>({
     bizNo: '',
     name: '',
@@ -49,7 +50,7 @@ export function StatementView() {
     fax: '',
   })
 
-  // 공급받는자 정보 (기본 공란)
+  // 공급받는자 정보 (거래처)
   const [receiver, setReceiver] = useState<CompanyInfo>({
     bizNo: '',
     name: '',
@@ -61,10 +62,10 @@ export function StatementView() {
     fax: '',
   })
 
-  // 품목 목록 (기본 공란 2줄)
+  // 명세표 품목 목록 (기본 단위: EA, 공란 2줄)
   const [items, setItems] = useState<ItemRow[]>([
-    { id: '1', nameSpec: '', unit: '', qty: 0, price: 0 },
-    { id: '2', nameSpec: '', unit: '', qty: 0, price: 0 },
+    { id: '1', nameSpec: '', unit: 'EA', qty: 0, price: 0 },
+    { id: '2', nameSpec: '', unit: 'EA', qty: 0, price: 0 },
   ])
 
   const [deposit, setDeposit] = useState<number>(0)      // 입금액
@@ -75,40 +76,39 @@ export function StatementView() {
   const [savedItems, setSavedItems] = useState<SavedItem[]>([])
   const [selectedReceiverName, setSelectedReceiverName] = useState('')
 
+  // 모달 상태
+  const [isReceiverModalOpen, setIsReceiverModalOpen] = useState(false)
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false)
+
+  // 수정용 임시 상태
+  const [editingReceiver, setEditingReceiver] = useState<CompanyInfo | null>(null)
+  const [editingItem, setEditingItem] = useState<SavedItem | null>(null)
+
   // 첫 로드 시 브라우저에 저장된 데이터 불러오기
   useEffect(() => {
-    // 1. 공급자(내 회사) 불러오기
     const loadedSupplier = localStorage.getItem('my_supplier_info')
     if (loadedSupplier) {
-      try {
-        setSupplier(JSON.parse(loadedSupplier))
-      } catch (e) {}
+      try { setSupplier(JSON.parse(loadedSupplier)) } catch (e) {}
     }
 
-    // 2. 거래처 목록 불러오기
     const loadedReceivers = localStorage.getItem('saved_receivers')
     if (loadedReceivers) {
-      try {
-        setSavedReceivers(JSON.parse(loadedReceivers))
-      } catch (e) {}
+      try { setSavedReceivers(JSON.parse(loadedReceivers)) } catch (e) {}
     }
 
-    // 3. 품목 마스터 불러오기
     const loadedItems = localStorage.getItem('saved_master_items')
     if (loadedItems) {
-      try {
-        setSavedItems(JSON.parse(loadedItems))
-      } catch (e) {}
+      try { setSavedItems(JSON.parse(loadedItems)) } catch (e) {}
     }
   }, [])
 
-  // 공급자 정보 저장
+  // 1. 내 회사 정보 저장
   const saveSupplierInfo = () => {
     localStorage.setItem('my_supplier_info', JSON.stringify(supplier))
-    alert('공급자(내 회사) 정보가 기본값으로 저장되었습니다.')
+    alert('공급자(내 회사) 정보가 저장되었습니다.')
   }
 
-  // 거래처(공급받는자) 목록에 저장
+  // 2. 거래처 저장 / 수정 / 삭제
   const saveCurrentReceiver = () => {
     if (!receiver.name) {
       alert('거래처 상호명을 입력해주세요.')
@@ -122,26 +122,34 @@ export function StatementView() {
     alert(`[${receiver.name}] 거래처가 저장되었습니다.`)
   }
 
-  // 거래처 선택시 불러오기
   const handleSelectReceiver = (name: string) => {
     setSelectedReceiverName(name)
     const found = savedReceivers.find((r) => r.name === name)
-    if (found) {
-      setReceiver(found)
-    }
+    if (found) setReceiver(found)
   }
 
-  // 거래처 삭제
   const deleteReceiver = (name: string) => {
+    if (!confirm(`[${name}] 거래처를 삭제하시겠습니까?`)) return
     const updated = savedReceivers.filter((r) => r.name !== name)
     setSavedReceivers(updated)
     localStorage.setItem('saved_receivers', JSON.stringify(updated))
-    if (selectedReceiverName === name) {
-      setSelectedReceiverName('')
-    }
+    if (selectedReceiverName === name) setSelectedReceiverName('')
+    if (editingReceiver?.name === name) setEditingReceiver(null)
   }
 
-  // 품목 관리: 현재 입력된 품목을 저장 마스터에 추가
+  const updateReceiverInModal = () => {
+    if (!editingReceiver) return
+    const updated = savedReceivers.map((r) =>
+      r.name === editingReceiver.name ? editingReceiver : r
+    )
+    setSavedReceivers(updated)
+    localStorage.setItem('saved_receivers', JSON.stringify(updated))
+    if (receiver.name === editingReceiver.name) setReceiver(editingReceiver)
+    setEditingReceiver(null)
+    alert('거래처 정보가 수정되었습니다.')
+  }
+
+  // 3. 품목 마스터 저장 / 수정 / 삭제
   const saveToItemMaster = (item: ItemRow) => {
     if (!item.nameSpec) {
       alert('품명-규격을 입력해주세요.')
@@ -151,36 +159,45 @@ export function StatementView() {
     const newItem: SavedItem = {
       id: Date.now().toString(),
       nameSpec: item.nameSpec,
-      unit: item.unit,
+      unit: item.unit || 'EA',
       price: item.price,
     }
     const updated = [...filtered, newItem]
     setSavedItems(updated)
     localStorage.setItem('saved_master_items', JSON.stringify(updated))
-    alert(`[${item.nameSpec}] 품목이 자주쓰는 품목 리스트에 저장되었습니다.`)
+    alert(`[${item.nameSpec}] 품목이 등록되었습니다.`)
   }
 
-  // 자주 쓰는 품목을 명세표 줄에 불러오기
   const loadMasterItemToRow = (rowId: string, masterItemName: string) => {
     const master = savedItems.find((i) => i.nameSpec === masterItemName)
     if (!master) return
     setItems(
       items.map((item) =>
         item.id === rowId
-          ? { ...item, nameSpec: master.nameSpec, unit: master.unit, price: master.price }
+          ? { ...item, nameSpec: master.nameSpec, unit: master.unit || 'EA', price: master.price }
           : item
       )
     )
   }
 
-  // 품목 삭제 (마스터)
   const deleteMasterItem = (id: string) => {
+    if (!confirm('해당 품목을 목록에서 삭제하시겠습니까?')) return
     const updated = savedItems.filter((i) => i.id !== id)
     setSavedItems(updated)
     localStorage.setItem('saved_master_items', JSON.stringify(updated))
+    if (editingItem?.id === id) setEditingItem(null)
   }
 
-  // 명세표 품목 줄 추가
+  const updateMasterItemInModal = () => {
+    if (!editingItem) return
+    const updated = savedItems.map((i) => (i.id === editingItem.id ? editingItem : i))
+    setSavedItems(updated)
+    localStorage.setItem('saved_master_items', JSON.stringify(updated))
+    setEditingItem(null)
+    alert('품목 정보가 수정되었습니다.')
+  }
+
+  // 明細 행 관리
   const addItemRow = () => {
     if (items.length >= 8) {
       alert('한 양식당 최대 8개 품목까지 입력 가능합니다.')
@@ -188,23 +205,21 @@ export function StatementView() {
     }
     setItems([
       ...items,
-      { id: Date.now().toString(), nameSpec: '', unit: '', qty: 0, price: 0 },
+      { id: Date.now().toString(), nameSpec: '', unit: 'EA', qty: 0, price: 0 },
     ])
   }
 
-  // 명세표 품목 줄 삭제
   const removeItemRow = (id: string) => {
     setItems(items.filter((item) => item.id !== id))
   }
 
-  // 명세표 품목 수정
   const updateItemRow = (id: string, field: keyof ItemRow, value: string | number) => {
     setItems(
       items.map((item) => (item.id === id ? { ...item, [field]: value } : item))
     )
   }
 
-  // 계산 로직
+  // 금액 자동 계산
   const totalSupplyValue = items.reduce((sum, item) => sum + (item.qty || 0) * (item.price || 0), 0)
   const totalTax = Math.round(totalSupplyValue * 0.1)
   const grandTotal = totalSupplyValue + totalTax
@@ -216,12 +231,12 @@ export function StatementView() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto p-2 sm:p-4 text-xs">
-      {/* 상단 컨트롤 바 */}
+      {/* 컨트롤 바 */}
       <div className="print:hidden flex flex-wrap items-center justify-between gap-4 bg-card p-4 rounded-xl border border-border shadow-sm">
         <div>
           <h2 className="text-base font-bold">거래명세서 작성 및 관리</h2>
           <p className="text-xs text-muted-foreground">
-            공급자/거래처/품목을 저장해두고 편리하게 불러와 거래명세서를 작성하세요.
+            저장된 거래처 및 품목을 불러오거나 관리 모달에서 언제든지 수정/삭제할 수 있습니다.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -231,7 +246,7 @@ export function StatementView() {
         </div>
       </div>
 
-      {/* 1. 입력 및 불러오기 관리 영역 (인쇄 시 숨김) */}
+      {/* 1. 데이터 입력/수정 영역 (인쇄 시 숨김) */}
       <div className="print:hidden bg-card p-4 rounded-xl border border-border space-y-6">
         {/* 거래 기본 정보 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -280,15 +295,14 @@ export function StatementView() {
 
           {/* 공급받는자 (거래처) */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between border-b pb-1 gap-2">
+            <div className="flex items-center justify-between border-b pb-1 gap-1">
               <h3 className="font-bold text-blue-600 whitespace-nowrap">공급받는자 (거래처)</h3>
-              <div className="flex items-center gap-1.5 w-full justify-end">
-                {/* 저장된 거래처 불러오기 드롭다운 */}
+              <div className="flex items-center gap-1">
                 {savedReceivers.length > 0 && (
                   <select
                     value={selectedReceiverName}
                     onChange={(e) => handleSelectReceiver(e.target.value)}
-                    className="h-6 text-[11px] px-1 border rounded bg-background max-w-[140px]"
+                    className="h-6 text-[11px] px-1 border rounded bg-background max-w-[120px]"
                   >
                     <option value="">-- 거래처 선택 --</option>
                     {savedReceivers.map((r) => (
@@ -298,8 +312,11 @@ export function StatementView() {
                     ))}
                   </select>
                 )}
-                <Button size="sm" variant="outline" onClick={saveCurrentReceiver} className="h-6 text-[11px] gap-1 whitespace-nowrap">
-                  <Save className="size-3" /> 거래처 저장
+                <Button size="sm" variant="outline" onClick={saveCurrentReceiver} className="h-6 text-[11px] gap-1 px-1.5">
+                  <Save className="size-3" /> 저장
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setIsReceiverModalOpen(true)} className="h-6 text-[11px] gap-1 px-1.5">
+                  <Settings className="size-3" /> 관리
                 </Button>
               </div>
             </div>
@@ -316,13 +333,18 @@ export function StatementView() {
           </div>
         </div>
 
-        {/* 품목 작성 및 불러오기 */}
+        {/* 품목 작성 및 관리 */}
         <div className="space-y-2 pt-2 border-t">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-foreground">품목 입력 명세</h3>
-            <Button variant="outline" size="sm" onClick={addItemRow} className="h-7 gap-1 text-xs">
-              <Plus className="size-3.5" /> 품목 줄 추가
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setIsItemModalOpen(true)} className="h-7 text-xs gap-1">
+                <Settings className="size-3.5" /> 자주 쓰는 품목 목록 관리
+              </Button>
+              <Button variant="outline" size="sm" onClick={addItemRow} className="h-7 gap-1 text-xs">
+                <Plus className="size-3.5" /> 품목 줄 추가
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -334,7 +356,7 @@ export function StatementView() {
                 {savedItems.length > 0 && (
                   <select
                     onChange={(e) => loadMasterItemToRow(item.id, e.target.value)}
-                    className="h-8 text-xs border rounded bg-background px-1 max-w-[130px]"
+                    className="h-8 text-xs border rounded bg-background px-1 max-w-[120px]"
                     defaultValue=""
                   >
                     <option value="" disabled>
@@ -354,12 +376,20 @@ export function StatementView() {
                   onChange={(e) => updateItemRow(item.id, 'nameSpec', e.target.value)}
                   className="flex-1 min-w-[140px] h-8 px-2 border rounded bg-background"
                 />
-                <input
-                  placeholder="단위"
-                  value={item.unit}
+
+                {/* 단위: 기본 EA 고정 및 셀렉트 박스 */}
+                <select
+                  value={item.unit || 'EA'}
                   onChange={(e) => updateItemRow(item.id, 'unit', e.target.value)}
-                  className="w-14 h-8 px-2 border rounded bg-background text-center"
-                />
+                  className="w-16 h-8 px-1 border rounded bg-background text-center font-semibold"
+                >
+                  <option value="EA">EA</option>
+                  <option value="M">M</option>
+                  <option value="SET">SET</option>
+                  <option value="BOX">BOX</option>
+                  <option value="KG">KG</option>
+                </select>
+
                 <input
                   type="number"
                   placeholder="수량"
@@ -381,11 +411,11 @@ export function StatementView() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  title="자주 쓰는 품목으로 저장"
+                  title="자주 쓰는 품목 리스트에 추가"
                   onClick={() => saveToItemMaster(item)}
                   className="h-8 px-2 text-xs gap-1"
                 >
-                  <Save className="size-3.5" /> 저장
+                  <Save className="size-3.5" /> 등록
                 </Button>
 
                 <Button
@@ -401,37 +431,51 @@ export function StatementView() {
           </div>
         </div>
 
-        {/* 입금액 및 잔액 */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t">
-          <div className="space-y-1">
-            <label className="text-muted-foreground">입금액</label>
-            <input
-              type="number"
-              value={deposit || ''}
-              onChange={(e) => setDeposit(Number(e.target.value))}
-              className="w-full h-8 px-2 border rounded bg-background text-right font-bold"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-muted-foreground">전잔액</label>
-            <input
-              type="number"
-              value={prevBalance || ''}
-              onChange={(e) => setPrevBalance(Number(e.target.value))}
-              className="w-full h-8 px-2 border rounded bg-background text-right font-bold"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-muted-foreground">합계액(공급가+세액)</label>
-            <div className="h-8 px-2 border rounded bg-muted flex items-center justify-end font-bold text-foreground">
-              {grandTotal.toLocaleString()}원
+        {/* 입금액, 잔액 및 미수금/참고사항 입력 */}
+        <div className="space-y-4 pt-2 border-t">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <label className="text-muted-foreground font-semibold">입금액</label>
+              <input
+                type="number"
+                value={deposit || ''}
+                onChange={(e) => setDeposit(Number(e.target.value))}
+                className="w-full h-8 px-2 border rounded bg-background text-right font-bold"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-muted-foreground font-semibold">전잔액</label>
+              <input
+                type="number"
+                value={prevBalance || ''}
+                onChange={(e) => setPrevBalance(Number(e.target.value))}
+                className="w-full h-8 px-2 border rounded bg-background text-right font-bold"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-muted-foreground font-semibold">합계액(공급가+세액)</label>
+              <div className="h-8 px-2 border rounded bg-muted flex items-center justify-end font-bold text-foreground">
+                {grandTotal.toLocaleString()}원
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-muted-foreground font-semibold">현잔액</label>
+              <div className="h-8 px-2 border rounded bg-muted flex items-center justify-end font-bold text-foreground">
+                {currentBalance.toLocaleString()}원
+              </div>
             </div>
           </div>
+
+          {/* 새로 추가된 미수금 및 참고사항 입력란 */}
           <div className="space-y-1">
-            <label className="text-muted-foreground">현잔액</label>
-            <div className="h-8 px-2 border rounded bg-muted flex items-center justify-end font-bold text-foreground">
-              {currentBalance.toLocaleString()}원
-            </div>
+            <label className="font-bold text-foreground">미수금 및 참고사항</label>
+            <textarea
+              rows={2}
+              value={memo}
+              onChange={(e) => setMemo(e.target.value)}
+              placeholder="예: 계좌번호(국민 123-456-789), 출고 방식, 미수금 관련 메모 등 자유롭게 기재"
+              className="w-full p-2 border rounded bg-background resize-none text-xs"
+            />
           </div>
         </div>
       </div>
@@ -450,6 +494,7 @@ export function StatementView() {
           items={items}
           deposit={deposit}
           prevBalance={prevBalance}
+          memo={memo}
           totalSupplyValue={totalSupplyValue}
           totalTax={totalTax}
           grandTotal={grandTotal}
@@ -471,12 +516,137 @@ export function StatementView() {
           items={items}
           deposit={deposit}
           prevBalance={prevBalance}
+          memo={memo}
           totalSupplyValue={totalSupplyValue}
           totalTax={totalTax}
           grandTotal={grandTotal}
           currentBalance={currentBalance}
         />
       </div>
+
+      {/* --- 모달 1: 거래처 관리/수정/삭제 모달 --- */}
+      {isReceiverModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border rounded-xl w-full max-w-lg p-4 space-y-4 shadow-lg">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-bold text-base">저장된 거래처 관리 및 수정</h3>
+              <Button variant="ghost" size="icon" onClick={() => setIsReceiverModalOpen(false)}>
+                <X className="size-4" />
+              </Button>
+            </div>
+
+            {/* 거래처 목록 */}
+            <div className="max-h-48 overflow-y-auto space-y-2 border-b pb-3">
+              {savedReceivers.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">저장된 거래처가 없습니다.</p>
+              ) : (
+                savedReceivers.map((r) => (
+                  <div key={r.name} className="flex justify-between items-center bg-muted/40 p-2 rounded">
+                    <div>
+                      <span className="font-bold">{r.name}</span>
+                      <span className="text-xs text-muted-foreground ml-2">({r.bizNo || '등록번호 없음'})</span>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" onClick={() => setEditingReceiver(r)} className="h-7 text-xs gap-1">
+                        <Edit3 className="size-3" /> 수정
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteReceiver(r.name)} className="h-7 text-xs">
+                        삭제
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* 거래처 수정 폼 */}
+            {editingReceiver && (
+              <div className="space-y-2 bg-muted/20 p-3 rounded border">
+                <h4 className="font-bold text-xs text-primary">[{editingReceiver.name}] 정보 수정</h4>
+                <div className="grid grid-cols-2 gap-2">
+                  <input placeholder="등록번호" value={editingReceiver.bizNo} onChange={(e) => setEditingReceiver({ ...editingReceiver, bizNo: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+                  <input placeholder="대표자명" value={editingReceiver.owner} onChange={(e) => setEditingReceiver({ ...editingReceiver, owner: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+                  <input placeholder="전화" value={editingReceiver.tel} onChange={(e) => setEditingReceiver({ ...editingReceiver, tel: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+                  <input placeholder="팩스" value={editingReceiver.fax} onChange={(e) => setEditingReceiver({ ...editingReceiver, fax: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+                  <input placeholder="주소" value={editingReceiver.address} onChange={(e) => setEditingReceiver({ ...editingReceiver, address: e.target.value })} className="col-span-2 h-8 px-2 border rounded bg-background" />
+                  <input placeholder="업태" value={editingReceiver.bizType} onChange={(e) => setEditingReceiver({ ...editingReceiver, bizType: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+                  <input placeholder="종목" value={editingReceiver.bizItem} onChange={(e) => setEditingReceiver({ ...editingReceiver, bizItem: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button size="sm" variant="ghost" onClick={() => setEditingReceiver(null)}>취소</Button>
+                  <Button size="sm" onClick={updateReceiverInModal}>수정 저장</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- 모달 2: 자주 쓰는 품목 관리/수정/삭제 모달 --- */}
+      {isItemModalOpen && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border rounded-xl w-full max-w-lg p-4 space-y-4 shadow-lg">
+            <div className="flex justify-between items-center border-b pb-2">
+              <h3 className="font-bold text-base">자주 쓰는 품목 목록 관리 및 수정</h3>
+              <Button variant="ghost" size="icon" onClick={() => setIsItemModalOpen(false)}>
+                <X className="size-4" />
+              </Button>
+            </div>
+
+            {/* 품목 목록 */}
+            <div className="max-h-48 overflow-y-auto space-y-2 border-b pb-3">
+              {savedItems.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">저장된 품목이 없습니다.</p>
+              ) : (
+                savedItems.map((m) => (
+                  <div key={m.id} className="flex justify-between items-center bg-muted/40 p-2 rounded">
+                    <div>
+                      <span className="font-bold">{m.nameSpec}</span>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        [{m.unit || 'EA'}] {(m.price || 0).toLocaleString()}원
+                      </span>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" onClick={() => setEditingItem(m)} className="h-7 text-xs gap-1">
+                        <Edit3 className="size-3" /> 수정
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteMasterItem(m.id)} className="h-7 text-xs">
+                        삭제
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* 품목 수정 폼 */}
+            {editingItem && (
+              <div className="space-y-2 bg-muted/20 p-3 rounded border">
+                <h4 className="font-bold text-xs text-primary">품목 정보 수정</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  <input placeholder="품명-규격" value={editingItem.nameSpec} onChange={(e) => setEditingItem({ ...editingItem, nameSpec: e.target.value })} className="col-span-2 h-8 px-2 border rounded bg-background" />
+                  <select
+                    value={editingItem.unit || 'EA'}
+                    onChange={(e) => setEditingItem({ ...editingItem, unit: e.target.value })}
+                    className="h-8 px-1 border rounded bg-background text-center font-semibold"
+                  >
+                    <option value="EA">EA</option>
+                    <option value="M">M</option>
+                    <option value="SET">SET</option>
+                    <option value="BOX">BOX</option>
+                    <option value="KG">KG</option>
+                  </select>
+                  <input type="number" placeholder="기본 단가" value={editingItem.price || ''} onChange={(e) => setEditingItem({ ...editingItem, price: Number(e.target.value) })} className="col-span-3 h-8 px-2 border rounded bg-background text-right" />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button size="sm" variant="ghost" onClick={() => setEditingItem(null)}>취소</Button>
+                  <Button size="sm" onClick={updateMasterItemInModal}>수정 저장</Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -492,6 +662,7 @@ interface StatementPaperProps {
   items: ItemRow[]
   deposit: number
   prevBalance: number
+  memo: string
   totalSupplyValue: number
   totalTax: number
   grandTotal: number
@@ -509,18 +680,17 @@ function StatementPaper({
   items,
   deposit,
   prevBalance,
+  memo,
   totalSupplyValue,
   totalTax,
   grandTotal,
   currentBalance,
 }: StatementPaperProps) {
-  // 표 채우기용 빈 줄 계산 (기본 6줄 고정)
   const maxRows = 6
   const emptyRows = Array.from({ length: Math.max(0, maxRows - items.length) })
 
   return (
     <div className="w-full text-[11px] leading-snug font-sans select-none" style={{ color }}>
-      {/* 최상단 거래일자 및 타이틀 */}
       <div className="flex items-end justify-between mb-1">
         <div className="w-1/3">
           거래일자 : <span className="font-bold border-b border-current px-2">{tradeDate}</span>
@@ -536,7 +706,6 @@ function StatementPaper({
         </div>
       </div>
 
-      {/* 공급자 / 공급받는자 메인 표 */}
       <table className="w-full border-collapse border-2 border-current text-center mb-1">
         <tbody>
           <tr>
@@ -590,7 +759,6 @@ function StatementPaper({
         </tbody>
       </table>
 
-      {/* 품목 명세 표 */}
       <table className="w-full border-collapse border-2 border-current text-center mb-1">
         <thead>
           <tr className="font-semibold h-6">
@@ -616,7 +784,7 @@ function StatementPaper({
               >
                 <td className="border border-current">{idx + 1}</td>
                 <td className="border border-current text-left px-2 font-medium">{item.nameSpec}</td>
-                <td className="border border-current">{item.unit}</td>
+                <td className="border border-current">{item.unit || 'EA'}</td>
                 <td className="border border-current text-right px-1">{item.qty ? item.qty.toLocaleString() : ''}</td>
                 <td className="border border-current text-right px-1">{item.price ? item.price.toLocaleString() : ''}</td>
                 <td className="border border-current text-right px-1 font-semibold">{supplyVal ? supplyVal.toLocaleString() : ''}</td>
@@ -645,10 +813,11 @@ function StatementPaper({
         </tbody>
       </table>
 
-      {/* 하단 금액 및 잔액 표 */}
       <div className="flex border-2 border-current">
-        <div className="flex-1 border-r border-current p-1 space-y-1">
-          <div className="text-[10px]">미수금 / 참고사항 기록란</div>
+        {/* 미수금 / 참고사항 직접 수정 영역 */}
+        <div className="flex-1 border-r border-current p-1.5 whitespace-pre-wrap leading-tight text-[10px]">
+          <div className="font-semibold text-[9px] opacity-75 mb-0.5">[미수금 및 참고사항]</div>
+          {memo || <span className="opacity-40">입력된 참고사항이 없습니다.</span>}
         </div>
         <div className="w-72">
           <table className="w-full border-collapse text-center">
@@ -670,7 +839,6 @@ function StatementPaper({
         </div>
       </div>
 
-      {/* 인수자 도장 칸 */}
       <div className="flex justify-end items-center gap-12 mt-1 px-4 text-xs font-semibold">
         <span>인수자</span>
         <span>(인)</span>
