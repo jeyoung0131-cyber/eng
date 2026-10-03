@@ -656,8 +656,8 @@ export function StatementView() {
         </div>
       </div>
 
-      {/* 2. 실제 A4 인쇄 양식 영역 (justify-between 제거 및 flex-col로 상하 밀착 고정) */}
-      <div className="bg-white p-0 space-y-0 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:h-[297mm] print:overflow-hidden flex flex-col">
+      {/* 2. 실제 A4 인쇄 양식 영역 (적당한 간격과 절취선 공간 확보) */}
+      <div className="bg-white p-3 space-y-3 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:h-[297mm] print:p-2 print:overflow-hidden flex flex-col justify-between">
         {/* 상단 (공급자 보관용 - 빨간색) */}
         <StatementPaper
           color="#ef4444"
@@ -677,8 +677,10 @@ export function StatementView() {
           currentBalance={currentBalance}
         />
 
-        {/* 절취선 (간격을 두께만큼만 주도록 위아래 마진/패딩 제거) */}
-        <div className="border-b border-dashed border-gray-400 my-0 py-0 w-full shrink-0"></div>
+        {/* 적당한 간격이 있는 절취선 */}
+        <div className="border-b border-dashed border-gray-400 my-1 py-1 w-full shrink-0 text-center">
+          <span className="text-[9px] text-gray-500 bg-white px-2">✂ ------------------------------------------------ 절 취 선 ------------------------------------------------ ✂</span>
+        </div>
 
         {/* 하단 (공급받는자 보관용 - 파란색) */}
         <StatementPaper
