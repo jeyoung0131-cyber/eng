@@ -4,9 +4,6 @@ import { useMemo } from 'react'
 import {
   ArrowDownRight,
   ArrowUpRight,
-  Landmark,
-  PiggyBank,
-  Receipt,
   TrendingDown,
   TrendingUp,
   Wallet,
@@ -59,25 +56,25 @@ export function Dashboard() {
         <h2 className="text-2xl font-bold tracking-tight">대시보드</h2>
       </div>
 
-      {/* 핵심 지표 카드리스트 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {/* [1줄 - 1] 총 매출 */}
+      {/* 핵심 지표 카드리스트 (간소화된 4개 카드) */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {/* [1] 총 매출 */}
         <StatCard
-          label="총 매출 (공급가액)"
+          label="총 매출"
           value={formatWon(totals.sales)}
           icon={<TrendingUp className="size-5" />}
           tone="primary"
           hint={`거래 ${projects.length}건`}
         />
-        {/* [1줄 - 2] 총 지출 */}
+        {/* [2] 총 지출 */}
         <StatCard
-          label="총 지출 (공급가액)"
+          label="총 지출"
           value={formatWon(totals.expenses)}
           icon={<TrendingDown className="size-5" />}
           tone="muted"
           hint={`지출 ${totalExpenseCount}건`}
         />
-        {/* [1줄 - 3] 순이익 (최상단 우측) */}
+        {/* [3] 순이익 */}
         <StatCard
           label="순이익 (매출 - 지출)"
           value={formatWon(netProfit)}
@@ -90,33 +87,7 @@ export function Dashboard() {
           }
           tone={netProfit >= 0 ? 'success' : 'destructive'}
         />
-
-        {/* [2줄 - 1] 납부예상 부가세 */}
-        <StatCard
-          label="납부예상 부가세 (10%)"
-          value={formatWon(totals.vatPayable)}
-          icon={<Receipt className="size-5" />}
-          tone="warning"
-          hint={`매출세액 ${formatWon(totals.salesVat)} · 매입세액 ${formatWon(totals.purchaseVat)}`}
-        />
-        {/* [2줄 - 2] 원천징수 */}
-        <StatCard
-          label="원천징수 (3.3%)"
-          value={formatWon(totals.withholding)}
-          icon={<Landmark className="size-5" />}
-          tone="muted"
-          hint="사업소득 원천징수 합계"
-        />
-        {/* [2줄 - 3] 실보유 순자금 (중간 우측) */}
-        <StatCard
-          label="실보유 순자금 (부가세 제외)"
-          value={formatWon(totals.netCash ?? 0)}
-          icon={<PiggyBank className="size-5" />}
-          tone="success"
-          hint="통장 입금액 - 총지출"
-        />
-
-        {/* [3줄 - 1] 미수금 현황 (최하단) */}
+        {/* [4] 미수금 현황 */}
         <StatCard
           label="미수금 현황"
           value={formatWon(totals.outstanding)}
@@ -126,35 +97,15 @@ export function Dashboard() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* 월별 추이 차트 */}
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>월별 매출·지출 추이</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <MonthlyChart data={monthly} />
-          </CardContent>
-        </Card>
-
-        {/* 세무 요약 */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>세무 요약</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <SummaryRow label="매출세액 (부가세)" value={formatWon(totals.salesVat)} />
-            <SummaryRow label="매입세액 (공제)" value={`- ${formatWon(totals.purchaseVat)}`} />
-            <div className="my-1 border-t border-border" />
-            <SummaryRow
-              label="납부예상 부가세"
-              value={formatWon(totals.vatPayable)}
-              strong
-            />
-            <SummaryRow label="원천징수 합계 (3.3%)" value={formatWon(totals.withholding)} />
-          </CardContent>
-        </Card>
-      </div>
+      {/* 월별 추이 차트 */}
+      <Card>
+        <CardHeader>
+          <CardTitle>월별 매출·지출 추이</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MonthlyChart data={monthly} />
+        </CardContent>
+      </Card>
 
       {/* 미수금 현황 상세 */}
       <Card>
@@ -237,26 +188,5 @@ function StatCard({
         </span>
       </CardContent>
     </Card>
-  )
-}
-
-function SummaryRow({
-  label,
-  value,
-  strong,
-}: {
-  label: string
-  value: string
-  strong?: boolean
-}) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className={strong ? 'font-medium' : 'text-sm text-muted-foreground'}>
-        {label}
-      </span>
-      <span className={strong ? 'text-lg font-bold text-primary' : 'text-sm font-medium'}>
-        {value}
-      </span>
-    </div>
   )
 }
