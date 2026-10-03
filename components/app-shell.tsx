@@ -19,6 +19,9 @@ export function AppShell() {
   const [tab, setTab] = useState<'dashboard' | 'ledger' | 'clients'>('dashboard')
   const { ledger, totals, resetAll } = useFinance()
 
+  // 엑셀 내 숫자에 천단위 쉼표 추가 함수
+  const formatNum = (num: number) => `"${(num || 0).toLocaleString('ko-KR')}"`
+
   // 네이버 웨일 및 엑셀 완벽 지원 CSV 다운로드
   const handleDownloadCsv = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -30,29 +33,36 @@ export function AppShell() {
 
     const todayStr = new Date().toISOString().slice(0, 10)
 
+    // 1. 재무 요약 리포트 (부가세, 원천징수 제거 및 깔끔한 정리)
     const summaryRows = [
       ['[ 재무 요약 리포트 ]'],
-      ['총 매출 (공급가액)', totals.sales],
-      ['총 지출 (공급가액)', totals.expenses],
-      ['순이익', totals.sales - totals.expenses],
-      ['납부예상 부가세', totals.vatPayable],
-      ['원천징수 (3.3%)', totals.withholding],
-      ['미수금', totals.outstanding],
-      ['실보유 순자금', totals.netCash ?? 0],
+      ['총 매출', formatNum(totals.sales)],
+      ['총 지출', formatNum(totals.expenses)],
+      ['순이익', formatNum(totals.sales - totals.expenses)],
+      ['미수금', formatNum(totals.outstanding)],
+      ['실보유 순자금', formatNum(totals.netCash ?? 0)],
       [],
     ]
 
+    // 2. 전체 장부 내역 (부가세포함, 과세여부 컬럼 제거)
     const ledgerHeader = ['[ 전체 장부 내역 ]']
-    const ledgerColumns = ['구분', '날짜', '거래처', '금액', '부가세포함', '과세여부', '메모']
-    const ledgerData = ledger.map((item) => [
-      item.kind === 'sale' ? '매출' : '지출',
-      item.date,
-      `"${(item.party || '').replace(/"/g, '""')}"`,
-      item.amount,
-      item.vatIncluded ? '포함' : '별도',
-      item.taxable !== false ? '과세' : '비과세',
-      `"${(item.memo || '').replace(/"/g, '""')}"`,
-    ])
+    const ledgerColumns = ['구분', '날짜', '거래처명', '결제수단', '금액(원)', '메모']
+    
+    const ledgerData = ledger.map((item) => {
+      const paymentLabel = 
+        item.paymentMethod === 'transfer' ? '계좌이체' :
+        item.paymentMethod === 'card' ? '카드' :
+        item.paymentMethod === 'cash' ? '현금' : '기타'
+
+      return [
+        item.kind === 'sale' ? '매출' : '지출',
+        item.date,
+        `"${(item.party || '').replace(/"/g, '""')}"`,
+        paymentLabel,
+        formatNum(item.amount),
+        `"${(item.memo || '').replace(/"/g, '""')}"`,
+      ]
+    })
 
     const csvContent = [
       ...summaryRows.map((r) => r.join(',')),
