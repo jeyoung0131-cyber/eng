@@ -328,16 +328,19 @@ export function StatementView() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto p-2 sm:p-4 text-xs">
-      {/* 인쇄 전용 스타일 강제 적용 (A4 한 장 맞춤 압축 및 불필요 여백 제거) */}
+      {/* 인쇄 전용 스타일 강제 적용 (A4 1장 고정 및 여백 원천 차단) */}
       <style jsx global>{`
         @media print {
           @page {
             size: A4;
-            margin: 0mm;
-          }
-          body {
             margin: 0;
+          }
+          body, html {
+            margin: 0 !important;
+            padding: 0 !important;
             background: white !important;
+            height: 100% !important;
+            overflow: hidden !important;
           }
           .print\\:hidden {
             display: none !important;
@@ -654,8 +657,8 @@ export function StatementView() {
         </div>
       </div>
 
-      {/* 2. 실제 A4 인쇄 양식 영역 (불필요한 마진/패딩 제거, 절취선 라인만 유지) */}
-      <div className="bg-white p-1 sm:p-2 space-y-0.5 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:h-[297mm] print:overflow-hidden flex flex-col justify-between">
+      {/* 2. 실제 A4 인쇄 양식 영역 (A4 1장에 정확히 맞추기 위해 높이 및 여백 압축) */}
+      <div className="bg-white p-0 space-y-0 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:h-[297mm] print:overflow-hidden flex flex-col justify-between">
         {/* 상단 (공급자 보관용 - 빨간색) */}
         <StatementPaper
           color="#ef4444"
@@ -675,8 +678,8 @@ export function StatementView() {
           currentBalance={currentBalance}
         />
 
-        {/* 절취선 (여백 완전 제거) */}
-        <div className="border-b border-dashed border-gray-400 my-0"></div>
+        {/* 절취선 (간격을 절취선 두께만큼만 주도록 마진 완전 제거) */}
+        <div className="border-b border-dashed border-gray-400 my-0 py-0"></div>
 
         {/* 하단 (공급받는자 보관용 - 파란색) */}
         <StatementPaper
@@ -978,39 +981,39 @@ function StatementPaper({
   const emptyRows = Array.from({ length: emptyRowsCount })
 
   return (
-    <div className="w-full text-[10px] leading-tight font-sans select-none print:text-[9.5px]" style={{ color }}>
-      <div className="flex items-end justify-between mb-0.5">
-        <div className="w-[28%] text-[10.5px]">
+    <div className="w-full text-[9.5px] leading-tight font-sans select-none print:text-[9px]" style={{ color }}>
+      <div className="flex items-end justify-between mb-0">
+        <div className="w-[28%] text-[10px]">
           거래일자 : <span className="font-bold border-b border-current px-1">{tradeDate}</span>
         </div>
         <div className="w-[44%] text-center flex items-center justify-center gap-1 shrink-0">
-          <span className="text-xs font-black border-2 border-current px-2 py-0.5 tracking-[0.15em] whitespace-nowrap">
+          <span className="text-xs font-black border-2 border-current px-2 py-0.2 tracking-[0.15em] whitespace-nowrap">
             거 래 명 세 서
           </span>
-          <span className="text-[9.5px] font-bold whitespace-nowrap">{typeTitle}</span>
+          <span className="text-[9px] font-bold whitespace-nowrap">{typeTitle}</span>
         </div>
-        <div className="w-[28%] text-right text-[10.5px]">
+        <div className="w-[28%] text-right text-[10px]">
           담당사원 : <span className="font-bold border-b border-current px-1">{manager}</span>
         </div>
       </div>
 
       {/* 공급자 / 공급받는자 헤더 테이블 */}
-      <table className="w-full border-collapse border border-current text-center mb-0.5">
+      <table className="w-full border-collapse border border-current text-center mb-0">
         <tbody>
           <tr>
-            <td rowSpan={5} className="border border-current w-3 font-bold text-[9px]" style={{ backgroundColor: bgLight }}>
+            <td rowSpan={5} className="border border-current w-3 font-bold text-[8.5px]" style={{ backgroundColor: bgLight }}>
               공<br />급<br />자
             </td>
-            <td className="border border-current w-12 font-semibold py-0.2">등록번호</td>
+            <td className="border border-current w-12 font-semibold py-0">등록번호</td>
             <td colSpan={3} className="border border-current font-bold text-left px-1.5">{supplier.bizNo}</td>
-            <td rowSpan={5} className="border border-current w-3 font-bold text-[9px]" style={{ backgroundColor: bgLight }}>
+            <td rowSpan={5} className="border border-current w-3 font-bold text-[8.5px]" style={{ backgroundColor: bgLight }}>
               공<br />급<br />받<br />는<br />자
             </td>
-            <td className="border border-current w-12 font-semibold py-0.2">등록번호</td>
+            <td className="border border-current w-12 font-semibold py-0">등록번호</td>
             <td colSpan={3} className="border border-current font-bold text-left px-1.5">{receiver.bizNo}</td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0.2">상호</td>
+            <td className="border border-current font-semibold py-0">상호</td>
             <td className="border border-current text-left px-1.5 font-bold">{supplier.name}</td>
             <td className="border border-current w-7 font-semibold">성명</td>
             <td className="border border-current text-left px-1.5">{supplier.owner}</td>
@@ -1020,13 +1023,13 @@ function StatementPaper({
             <td className="border border-current text-left px-1.5">{receiver.owner}</td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0.2">주소</td>
-            <td colSpan={3} className="border border-current text-left px-1.5 text-[9px]">{supplier.address}</td>
+            <td className="border border-current font-semibold py-0">주소</td>
+            <td colSpan={3} className="border border-current text-left px-1.5 text-[8.5px]">{supplier.address}</td>
             <td className="border border-current font-semibold">주소</td>
-            <td colSpan={3} className="border border-current text-left px-1.5 text-[9px]">{receiver.address}</td>
+            <td colSpan={3} className="border border-current text-left px-1.5 text-[8.5px]">{receiver.address}</td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0.2">업태</td>
+            <td className="border border-current font-semibold py-0">업태</td>
             <td className="border border-current text-left px-1.5">{supplier.bizType}</td>
             <td className="border border-current font-semibold">종목</td>
             <td className="border border-current text-left px-1.5">{supplier.bizItem}</td>
@@ -1036,7 +1039,7 @@ function StatementPaper({
             <td className="border border-current text-left px-1.5">{receiver.bizItem}</td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0.2">전화</td>
+            <td className="border border-current font-semibold py-0">전화</td>
             <td className="border border-current text-left px-1.5">{supplier.tel}</td>
             <td className="border border-current font-semibold">팩스</td>
             <td className="border border-current text-left px-1.5">{supplier.fax}</td>
@@ -1049,16 +1052,16 @@ function StatementPaper({
       </table>
 
       {/* 품목 명세 테이블 */}
-      <table className="w-full border-collapse border border-current text-center mb-0.5">
+      <table className="w-full border-collapse border border-current text-center mb-0">
         <thead>
           <tr style={{ backgroundColor: bgLight }}>
-            <th className="border border-current py-0.2 w-6">NO</th>
-            <th className="border border-current py-0.2">품명 및 규격</th>
-            <th className="border border-current py-0.2 w-9">단위</th>
-            <th className="border border-current py-0.2 w-12">수량</th>
-            <th className="border border-current py-0.2 w-16">단가</th>
-            <th className="border border-current py-0.2 w-20">공급가액</th>
-            <th className="border border-current py-0.2 w-14">세액</th>
+            <th className="border border-current py-0 w-6">NO</th>
+            <th className="border border-current py-0">품명 및 규격</th>
+            <th className="border border-current py-0 w-9">단위</th>
+            <th className="border border-current py-0 w-12">수량</th>
+            <th className="border border-current py-0 w-16">단가</th>
+            <th className="border border-current py-0 w-20">공급가액</th>
+            <th className="border border-current py-0 w-14">세액</th>
           </tr>
         </thead>
         <tbody>
@@ -1066,7 +1069,7 @@ function StatementPaper({
             const rowSupply = (item.qty || 0) * (item.price || 0)
             const rowTax = Math.round(rowSupply * 0.1)
             return (
-              <tr key={item.id} className="h-3.5">
+              <tr key={item.id} className="h-3">
                 <td className="border border-current font-medium py-0">{idx + 1}</td>
                 <td className="border border-current text-left px-2 font-semibold py-0">{item.nameSpec}</td>
                 <td className="border border-current py-0">{item.unit || 'EA'}</td>
@@ -1078,7 +1081,7 @@ function StatementPaper({
             )
           })}
           {emptyRows.map((_, idx) => (
-            <tr key={`empty-${idx}`} className="h-3.5">
+            <tr key={`empty-${idx}`} className="h-3">
               <td className="border border-current py-0">{items.length + idx + 1}</td>
               <td className="border border-current py-0"></td>
               <td className="border border-current py-0"></td>
@@ -1095,31 +1098,31 @@ function StatementPaper({
       <table className="w-full border-collapse border border-current text-center">
         <tbody>
           <tr>
-            <td className="border border-current w-14 font-semibold py-0.2" style={{ backgroundColor: bgLight }}>공급가액</td>
-            <td className="border border-current w-24 text-right px-2 font-bold py-0.2">{totalSupplyValue.toLocaleString()}원</td>
-            <td className="border border-current w-10 font-semibold py-0.2" style={{ backgroundColor: bgLight }}>세액</td>
-            <td className="border border-current w-20 text-right px-2 font-bold py-0.2">{totalTax.toLocaleString()}원</td>
-            <td className="border border-current w-14 font-semibold py-0.2" style={{ backgroundColor: bgLight }}>계인등</td>
-            <td className="border border-current text-left px-2 py-0.2" rowSpan={2}>
-              <div className="text-[9px] text-gray-800 whitespace-pre-wrap leading-tight font-medium">
+            <td className="border border-current w-14 font-semibold py-0" style={{ backgroundColor: bgLight }}>공급가액</td>
+            <td className="border border-current w-24 text-right px-2 font-bold py-0">{totalSupplyValue.toLocaleString()}원</td>
+            <td className="border border-current w-10 font-semibold py-0" style={{ backgroundColor: bgLight }}>세액</td>
+            <td className="border border-current w-20 text-right px-2 font-bold py-0">{totalTax.toLocaleString()}원</td>
+            <td className="border border-current w-14 font-semibold py-0" style={{ backgroundColor: bgLight }}>계인등</td>
+            <td className="border border-current text-left px-2 py-0" rowSpan={2}>
+              <div className="text-[8.5px] text-gray-800 whitespace-pre-wrap leading-tight font-medium">
                 {memo || '위 금액을 정히 영수(청구)함.'}
               </div>
             </td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0.2" style={{ backgroundColor: bgLight }}>합계금액</td>
-            <td colSpan={3} className="border border-current text-right px-2 font-black text-[11px] py-0.2">
+            <td className="border border-current font-semibold py-0" style={{ backgroundColor: bgLight }}>합계금액</td>
+            <td colSpan={3} className="border border-current text-right px-2 font-black text-[10.5px] py-0">
               {grandTotal.toLocaleString()}원
             </td>
-            <td className="border border-current font-semibold py-0.2" style={{ backgroundColor: bgLight }}>잔액</td>
+            <td className="border border-current font-semibold py-0" style={{ backgroundColor: bgLight }}>잔액</td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0.2" style={{ backgroundColor: bgLight }}>전잔액</td>
-            <td className="border border-current text-right px-2 font-medium py-0.2">{prevBalance.toLocaleString()}원</td>
-            <td className="border border-current font-semibold py-0.2" style={{ backgroundColor: bgLight }}>입금액</td>
-            <td className="border border-current text-right px-2 font-medium py-0.2">{deposit.toLocaleString()}원</td>
-            <td className="border border-current font-semibold py-0.2" style={{ backgroundColor: bgLight }}>현잔액</td>
-            <td className="border border-current text-right px-2 font-bold py-0.2">{currentBalance.toLocaleString()}원</td>
+            <td className="border border-current font-semibold py-0" style={{ backgroundColor: bgLight }}>전잔액</td>
+            <td className="border border-current text-right px-2 font-medium py-0">{prevBalance.toLocaleString()}원</td>
+            <td className="border border-current font-semibold py-0" style={{ backgroundColor: bgLight }}>입금액</td>
+            <td className="border border-current text-right px-2 font-medium py-0">{deposit.toLocaleString()}원</td>
+            <td className="border border-current font-semibold py-0" style={{ backgroundColor: bgLight }}>현잔액</td>
+            <td className="border border-current text-right px-2 font-bold py-0">{currentBalance.toLocaleString()}원</td>
           </tr>
         </tbody>
       </table>
