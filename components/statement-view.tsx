@@ -37,9 +37,6 @@ type SavedMemo = {
   content: string
 }
 
-// 사용자가 올려주신 도장 이미지의 기본 Base64 데이터
-const DEFAULT_SEAL_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIA...' // (생략 또는 내장 데이터)
-
 export function StatementView() {
   const [tradeDate, setTradeDate] = useState(() => {
     const today = new Date()
@@ -50,7 +47,7 @@ export function StatementView() {
   const [manager, setManager] = useState('')
   const [memo, setMemo] = useState('')
 
-  // 공급자 정보 (내 회사) - 기본 도장 이미지 기본 탑재
+  // 공급자 정보 (내 회사)
   const [supplier, setSupplier] = useState<CompanyInfo>({
     bizNo: '',
     name: '',
@@ -107,21 +104,11 @@ export function StatementView() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 첫 로드 시 브라우저에 저장된 데이터 불러오기 (없으면 기본 도장 자동 세팅)
+  // 첫 로드 시 브라우저에 저장된 데이터 불러오기
   useEffect(() => {
     const loadedSupplier = localStorage.getItem('my_supplier_info')
     if (loadedSupplier) {
-      try { 
-        const parsed = JSON.parse(loadedSupplier)
-        // 저장된 정보에 도장이 없으면 기본 도장 채워주기
-        if (!parsed.sealUrl) {
-          parsed.sealUrl = DEFAULT_SEAL_IMAGE
-        }
-        setSupplier(parsed) 
-      } catch (e) {}
-    } else {
-      // 최초 실행 시 기본 도장 적용
-      setSupplier(prev => ({ ...prev, sealUrl: DEFAULT_SEAL_IMAGE }))
+      try { setSupplier(JSON.parse(loadedSupplier)) } catch (e) {}
     }
 
     const loadedReceivers = localStorage.getItem('saved_receivers')
@@ -151,7 +138,7 @@ export function StatementView() {
     alert('공급자(내 회사) 정보 및 도장이 저장되었습니다.')
   }
 
-  // 도장 이미지 업로드 핸들러 (다른 도장으로 변경하고 싶을 때 사용)
+  // 도장 이미지 업로드 핸들러
   const handleSealUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -397,7 +384,7 @@ export function StatementView() {
         <div>
           <h2 className="text-base font-bold">거래명세서 작성 및 관리</h2>
           <p className="text-xs text-muted-foreground">
-            등록하신 직인이 자동으로 포함된 A4 세로 최적화 거래명세서입니다.
+            공급자 도장(직인) 날인이 포함된 A4 세로 최적화 거래명세서입니다.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -477,15 +464,15 @@ export function StatementView() {
               <input placeholder="팩스" value={supplier.fax} onChange={(e) => setSupplier({ ...supplier, fax: e.target.value })} className="col-span-2 h-8 px-2 border rounded bg-background" />
             </div>
 
-            {/* 도장 이미지 상태 표시 및 변경 섹션 */}
+            {/* 도장 이미지 업로드 섹션 */}
             <div className="flex items-center gap-3 pt-2 bg-muted/30 p-2 rounded border">
               <div className="flex-1">
-                <span className="font-semibold text-foreground">회사 직인(도장) 적용됨</span>
-                <p className="text-[10px] text-muted-foreground">기본 도장이 탑재되어 있습니다. 변경하려면 다른 이미지를 등록하세요.</p>
+                <span className="font-semibold text-foreground">회사 직인(도장) 이미지</span>
+                <p className="text-[10px] text-muted-foreground">배경이 투명한 PNG 도장 파일을 권장합니다.</p>
               </div>
               <input type="file" ref={fileInputRef} onChange={handleSealUpload} accept="image/*" className="hidden" />
               <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} className="h-7 text-xs gap-1">
-                <Upload className="size-3.5" /> 도장 변경
+                <Upload className="size-3.5" /> 도장 등록
               </Button>
               {supplier.sealUrl && (
                 <div className="relative size-8 border rounded bg-white flex items-center justify-center p-0.5">
