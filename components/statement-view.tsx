@@ -328,7 +328,7 @@ export function StatementView() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto p-2 sm:p-4 text-xs">
-      {/* 인쇄 전용 스타일 강제 적용 (A4 1장 고정 및 여백 원천 차단) */}
+      {/* 인쇄 전용 스타일 강제 적용 */}
       <style jsx global>{`
         @media print {
           @page {
@@ -501,7 +501,6 @@ export function StatementView() {
               <div key={item.id} className="flex flex-wrap items-center gap-2 bg-muted/30 p-2 rounded border">
                 <span className="w-5 text-center font-bold">{idx + 1}</span>
 
-                {/* 자주 쓰는 품목 불러오기 선택 */}
                 {savedItems.length > 0 && (
                   <select
                     onChange={(e) => loadMasterItemToRow(item.id, e.target.value)}
@@ -657,8 +656,8 @@ export function StatementView() {
         </div>
       </div>
 
-      {/* 2. 실제 A4 인쇄 양식 영역 (A4 1장에 정확히 맞추기 위해 높이 및 여백 압축) */}
-      <div className="bg-white p-0 space-y-0 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:h-[297mm] print:overflow-hidden flex flex-col justify-between">
+      {/* 2. 실제 A4 인쇄 양식 영역 (justify-between 제거 및 flex-col로 상하 밀착 고정) */}
+      <div className="bg-white p-0 space-y-0 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:h-[297mm] print:overflow-hidden flex flex-col">
         {/* 상단 (공급자 보관용 - 빨간색) */}
         <StatementPaper
           color="#ef4444"
@@ -678,8 +677,8 @@ export function StatementView() {
           currentBalance={currentBalance}
         />
 
-        {/* 절취선 (간격을 절취선 두께만큼만 주도록 마진 완전 제거) */}
-        <div className="border-b border-dashed border-gray-400 my-0 py-0"></div>
+        {/* 절취선 (간격을 두께만큼만 주도록 위아래 마진/패딩 제거) */}
+        <div className="border-b border-dashed border-gray-400 my-0 py-0 w-full shrink-0"></div>
 
         {/* 하단 (공급받는자 보관용 - 파란색) */}
         <StatementPaper
