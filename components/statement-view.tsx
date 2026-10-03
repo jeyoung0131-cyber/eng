@@ -328,7 +328,7 @@ export function StatementView() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto p-2 sm:p-4 text-xs">
-      {/* 인쇄 전용 스타일 강제 적용 (A4 한 장 맞춤 압축) */}
+      {/* 인쇄 전용 스타일 강제 적용 (A4 한 장 맞춤 압축 및 불필요 여백 제거) */}
       <style jsx global>{`
         @media print {
           @page {
@@ -654,8 +654,8 @@ export function StatementView() {
         </div>
       </div>
 
-      {/* 2. 실제 A4 인쇄 양식 영역 (중앙 여백 및 전체 높이 최적화 적용됨) */}
-      <div className="bg-white p-2 sm:p-3 space-y-1 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:h-[297mm] print:overflow-hidden flex flex-col justify-between">
+      {/* 2. 실제 A4 인쇄 양식 영역 (불필요한 마진/패딩 제거, 절취선 라인만 유지) */}
+      <div className="bg-white p-1 sm:p-2 space-y-0.5 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:h-[297mm] print:overflow-hidden flex flex-col justify-between">
         {/* 상단 (공급자 보관용 - 빨간색) */}
         <StatementPaper
           color="#ef4444"
@@ -675,8 +675,8 @@ export function StatementView() {
           currentBalance={currentBalance}
         />
 
-        {/* 절취선 (여백 최소화) */}
-        <div className="border-b border-dashed border-gray-400 my-0.5"></div>
+        {/* 절취선 (여백 완전 제거) */}
+        <div className="border-b border-dashed border-gray-400 my-0"></div>
 
         {/* 하단 (공급받는자 보관용 - 파란색) */}
         <StatementPaper
@@ -1056,7 +1056,7 @@ function StatementPaper({
             <th className="border border-current py-0.2">품명 및 규격</th>
             <th className="border border-current py-0.2 w-9">단위</th>
             <th className="border border-current py-0.2 w-12">수량</th>
-            <th className="border border-current py-0.2 w-16">단단</th>
+            <th className="border border-current py-0.2 w-16">단가</th>
             <th className="border border-current py-0.2 w-20">공급가액</th>
             <th className="border border-current py-0.2 w-14">세액</th>
           </tr>
