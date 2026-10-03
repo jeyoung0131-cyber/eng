@@ -15,7 +15,7 @@ export interface ItemRow {
   note: string;
 }
 
-export default function StatementView() {
+export function StatementView() {
   // 공급받는자 / 담당사원
   const [customerName, setCustomerName] = useState("");
   const [manager, setManager] = useState("");
@@ -271,3 +271,5 @@ export default function StatementView() {
     </div>
   );
 }
+
+export default StatementView;
