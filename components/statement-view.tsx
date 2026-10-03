@@ -328,7 +328,7 @@ export function StatementView() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto p-2 sm:p-4 text-xs">
-      {/* 인쇄 전용 스타일: A4 규격 엄격 고정 및 여백 제거 */}
+      {/* 인쇄 전용 스타일: A4 규격 꽉 차게 폰트 및 여백 최적화 */}
       <style jsx global>{`
         @media print {
           @page {
@@ -349,7 +349,7 @@ export function StatementView() {
           .print\\:container {
             width: 210mm !important;
             height: 297mm !important;
-            padding: 6mm 10mm !important;
+            padding: 4mm 8mm !important;
             margin: 0 !important;
             box-sizing: border-box !important;
             display: flex !important;
@@ -368,7 +368,7 @@ export function StatementView() {
         <div>
           <h2 className="text-base font-bold">거래명세서 작성 및 관리</h2>
           <p className="text-xs text-muted-foreground">
-            담당사원, 참고사항, 거래처, 품목을 자유롭게 저장 및 수정하여 빠르게 명세서를 작성할 수 있습니다.
+            A4 용지 크기에 꽉 차도록 확대되고 여백이 최적화된 양식입니다.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -380,7 +380,6 @@ export function StatementView() {
 
       {/* 1. 데이터 입력/수정 영역 (인쇄 시 숨김) */}
       <div className="print:hidden bg-card p-4 rounded-xl border border-border space-y-6">
-        {/* 거래 기본 정보 */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="font-bold text-foreground">거래일자</label>
@@ -392,7 +391,6 @@ export function StatementView() {
             />
           </div>
 
-          {/* 담당사원 영역 */}
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <label className="font-bold text-foreground">담당사원</label>
@@ -421,13 +419,9 @@ export function StatementView() {
                   className="h-8 text-xs border rounded bg-background px-1 max-w-[120px]"
                   value=""
                 >
-                  <option value="" disabled>
-                    불러오기
-                  </option>
+                  <option value="" disabled>불러오기</option>
                   {savedManagers.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
+                    <option key={m} value={m}>{m}</option>
                   ))}
                 </select>
               )}
@@ -435,9 +429,7 @@ export function StatementView() {
           </div>
         </div>
 
-        {/* 공급자 & 공급받는자(거래처) 정보 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t">
-          {/* 공급자 (내 회사) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between border-b pb-1">
               <h3 className="font-bold text-red-600">공급자 정보 (내 회사)</h3>
@@ -457,7 +449,6 @@ export function StatementView() {
             </div>
           </div>
 
-          {/* 공급받는자 (거래처) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between border-b pb-1 gap-1">
               <h3 className="font-bold text-blue-600 whitespace-nowrap">공급받는자 (거래처)</h3>
@@ -470,9 +461,7 @@ export function StatementView() {
                   >
                     <option value="">-- 거래처 선택 --</option>
                     {savedReceivers.map((r) => (
-                      <option key={r.name} value={r.name}>
-                        {r.name}
-                      </option>
+                      <option key={r.name} value={r.name}>{r.name}</option>
                     ))}
                   </select>
                 )}
@@ -497,7 +486,6 @@ export function StatementView() {
           </div>
         </div>
 
-        {/* 품목 작성 및 관리 */}
         <div className="space-y-2 pt-2 border-t">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-foreground">품목 입력 명세</h3>
@@ -522,13 +510,9 @@ export function StatementView() {
                     className="h-8 text-xs border rounded bg-background px-1 max-w-[120px]"
                     defaultValue=""
                   >
-                    <option value="" disabled>
-                      불러오기
-                    </option>
+                    <option value="" disabled>불러오기</option>
                     {savedItems.map((m) => (
-                      <option key={m.id} value={m.nameSpec}>
-                        {m.nameSpec}
-                      </option>
+                      <option key={m.id} value={m.nameSpec}>{m.nameSpec}</option>
                     ))}
                   </select>
                 )}
@@ -593,7 +577,6 @@ export function StatementView() {
           </div>
         </div>
 
-        {/* 입금액, 잔액 및 미수금/참고사항 입력 */}
         <div className="space-y-4 pt-2 border-t">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="space-y-1">
@@ -628,7 +611,6 @@ export function StatementView() {
             </div>
           </div>
 
-          {/* 참고사항(메모) 영역 */}
           <div className="space-y-1">
             <div className="flex justify-between items-center">
               <label className="font-bold text-foreground">미수금 및 참고사항</label>
@@ -642,13 +624,9 @@ export function StatementView() {
                     className="h-6 text-[11px] px-1 border rounded bg-background max-w-[150px]"
                     defaultValue=""
                   >
-                    <option value="" disabled>
-                      불러오기
-                    </option>
+                    <option value="" disabled>불러오기</option>
                     {savedMemos.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.title}
-                      </option>
+                      <option key={m.id} value={m.id}>{m.title}</option>
                     ))}
                   </select>
                 )}
@@ -671,8 +649,8 @@ export function StatementView() {
         </div>
       </div>
 
-      {/* 2. 실제 A4 인쇄 양식 영역 (A4 세로 사이즈에 딱 맞춰 고정) */}
-      <div className="bg-white p-3 space-y-1.5 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:container">
+      {/* 2. 실제 A4 인쇄 양식 영역 (확대되어 A4 용지에 꽉 차는 스타일) */}
+      <div className="bg-white p-3 space-y-2 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:container">
         {/* 상단 (공급자 보관용 - 빨간색) */}
         <StatementPaper
           color="#ef4444"
@@ -692,9 +670,9 @@ export function StatementView() {
           currentBalance={currentBalance}
         />
 
-        {/* 적당한 간격과 깔끔한 절취선 */}
-        <div className="border-b border-dashed border-gray-400 my-1 py-0.5 w-full shrink-0 text-center">
-          <span className="text-[8.5px] text-gray-500 bg-white px-2">✂ ------------------------------------------------ 절 취 선 ------------------------------------------------ ✂</span>
+        {/* 절취선 */}
+        <div className="border-b border-dashed border-gray-400 my-1 py-1 w-full shrink-0 text-center">
+          <span className="text-[10px] text-gray-500 bg-white px-3 font-medium">✂ ------------------------------------------------ 절 취 선 ------------------------------------------------ ✂</span>
         </div>
 
         {/* 하단 (공급받는자 보관용 - 파란색) */}
@@ -717,7 +695,7 @@ export function StatementView() {
         />
       </div>
 
-      {/* --- 모달 1: 담당사원 관리/수정/삭제 --- */}
+      {/* --- 모달 영역들 --- */}
       {isManagerModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-xl w-full max-w-md p-4 space-y-4 shadow-lg">
@@ -727,7 +705,6 @@ export function StatementView() {
                 <X className="size-4" />
               </Button>
             </div>
-
             <div className="max-h-52 overflow-y-auto space-y-2 border-b pb-3">
               {savedManagers.length === 0 ? (
                 <p className="text-center text-muted-foreground py-4">저장된 담당사원이 없습니다.</p>
@@ -736,34 +713,19 @@ export function StatementView() {
                   <div key={idx} className="flex justify-between items-center bg-muted/40 p-2 rounded">
                     <span className="font-bold">{m}</span>
                     <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingManagerIndex(idx)
-                          setEditingManagerText(m)
-                        }}
-                        className="h-7 text-xs gap-1"
-                      >
+                      <Button size="sm" variant="outline" onClick={() => { setEditingManagerIndex(idx); setEditingManagerText(m); }} className="h-7 text-xs gap-1">
                         <Edit3 className="size-3" /> 수정
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => deleteManager(m)} className="h-7 text-xs">
-                        삭제
-                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteManager(m)} className="h-7 text-xs">삭제</Button>
                     </div>
                   </div>
                 ))
               )}
             </div>
-
             {editingManagerIndex !== null && (
               <div className="space-y-2 bg-muted/20 p-3 rounded border">
                 <h4 className="font-bold text-xs text-primary">담당사원 이름 수정</h4>
-                <input
-                  value={editingManagerText}
-                  onChange={(e) => setEditingManagerText(e.target.value)}
-                  className="w-full h-8 px-2 border rounded bg-background"
-                />
+                <input value={editingManagerText} onChange={(e) => setEditingManagerText(e.target.value)} className="w-full h-8 px-2 border rounded bg-background" />
                 <div className="flex justify-end gap-2 pt-1">
                   <Button size="sm" variant="ghost" onClick={() => setEditingManagerIndex(null)}>취소</Button>
                   <Button size="sm" onClick={updateManagerInModal}>수정 저장</Button>
@@ -774,7 +736,6 @@ export function StatementView() {
         </div>
       )}
 
-      {/* --- 모달 2: 참고사항(메모) 관리/수정/삭제 --- */}
       {isMemoModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-xl w-full max-w-lg p-4 space-y-4 shadow-lg">
@@ -784,7 +745,6 @@ export function StatementView() {
                 <X className="size-4" />
               </Button>
             </div>
-
             <div className="max-h-52 overflow-y-auto space-y-2 border-b pb-3">
               {savedMemos.length === 0 ? (
                 <p className="text-center text-muted-foreground py-4">저장된 참고사항이 없습니다.</p>
@@ -799,31 +759,17 @@ export function StatementView() {
                       <Button size="sm" variant="outline" onClick={() => setEditingMemo(m)} className="h-7 text-xs gap-1">
                         <Edit3 className="size-3" /> 수정
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => deleteMemo(m.id)} className="h-7 text-xs">
-                        삭제
-                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteMemo(m.id)} className="h-7 text-xs">삭제</Button>
                     </div>
                   </div>
                 ))
               )}
             </div>
-
             {editingMemo && (
               <div className="space-y-2 bg-muted/20 p-3 rounded border">
                 <h4 className="font-bold text-xs text-primary">참고사항 수정</h4>
-                <input
-                  placeholder="제목"
-                  value={editingMemo.title}
-                  onChange={(e) => setEditingMemo({ ...editingMemo, title: e.target.value })}
-                  className="w-full h-8 px-2 border rounded bg-background font-bold"
-                />
-                <textarea
-                  rows={2}
-                  placeholder="내용"
-                  value={editingMemo.content}
-                  onChange={(e) => setEditingMemo({ ...editingMemo, content: e.target.value })}
-                  className="w-full p-2 border rounded bg-background resize-none"
-                />
+                <input placeholder="제목" value={editingMemo.title} onChange={(e) => setEditingMemo({ ...editingMemo, title: e.target.value })} className="w-full h-8 px-2 border rounded bg-background font-bold" />
+                <textarea rows={2} placeholder="내용" value={editingMemo.content} onChange={(e) => setEditingMemo({ ...editingMemo, content: e.target.value })} className="w-full p-2 border rounded bg-background resize-none" />
                 <div className="flex justify-end gap-2 pt-1">
                   <Button size="sm" variant="ghost" onClick={() => setEditingMemo(null)}>취소</Button>
                   <Button size="sm" onClick={updateMemoInModal}>수정 저장</Button>
@@ -834,7 +780,6 @@ export function StatementView() {
         </div>
       )}
 
-      {/* --- 모달 3: 거래처 관리/수정/삭제 모달 --- */}
       {isReceiverModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-xl w-full max-w-lg p-4 space-y-4 shadow-lg">
@@ -844,7 +789,6 @@ export function StatementView() {
                 <X className="size-4" />
               </Button>
             </div>
-
             <div className="max-h-48 overflow-y-auto space-y-2 border-b pb-3">
               {savedReceivers.length === 0 ? (
                 <p className="text-center text-muted-foreground py-4">저장된 거래처가 없습니다.</p>
@@ -859,15 +803,12 @@ export function StatementView() {
                       <Button size="sm" variant="outline" onClick={() => setEditingReceiver(r)} className="h-7 text-xs gap-1">
                         <Edit3 className="size-3" /> 수정
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => deleteReceiver(r.name)} className="h-7 text-xs">
-                        삭제
-                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteReceiver(r.name)} className="h-7 text-xs">삭제</Button>
                     </div>
                   </div>
                 ))
               )}
             </div>
-
             {editingReceiver && (
               <div className="space-y-2 bg-muted/20 p-3 rounded border">
                 <h4 className="font-bold text-xs text-primary">[{editingReceiver.name}] 정보 수정</h4>
@@ -890,7 +831,6 @@ export function StatementView() {
         </div>
       )}
 
-      {/* --- 모달 4: 자주 쓰는 품목 관리/수정/삭제 모달 --- */}
       {isItemModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-xl w-full max-w-lg p-4 space-y-4 shadow-lg">
@@ -900,7 +840,6 @@ export function StatementView() {
                 <X className="size-4" />
               </Button>
             </div>
-
             <div className="max-h-48 overflow-y-auto space-y-2 border-b pb-3">
               {savedItems.length === 0 ? (
                 <p className="text-center text-muted-foreground py-4">저장된 품목이 없습니다.</p>
@@ -917,15 +856,12 @@ export function StatementView() {
                       <Button size="sm" variant="outline" onClick={() => setEditingItem(m)} className="h-7 text-xs gap-1">
                         <Edit3 className="size-3" /> 수정
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => deleteMasterItem(m.id)} className="h-7 text-xs">
-                        삭제
-                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteMasterItem(m.id)} className="h-7 text-xs">삭제</Button>
                     </div>
                   </div>
                 ))
               )}
             </div>
-
             {editingItem && (
               <div className="space-y-2 bg-muted/20 p-3 rounded border">
                 <h4 className="font-bold text-xs text-primary">품목 정보 수정</h4>
@@ -997,87 +933,87 @@ function StatementPaper({
   const emptyRows = Array.from({ length: emptyRowsCount })
 
   return (
-    <div className="w-full text-[9px] leading-tight font-sans select-none" style={{ color }}>
-      <div className="flex items-end justify-between mb-0.5">
-        <div className="w-[28%] text-[9.5px]">
-          거래일자 : <span className="font-bold border-b border-current px-1">{tradeDate}</span>
+    <div className="w-full text-[11px] leading-tight font-sans select-none" style={{ color }}>
+      <div className="flex items-end justify-between mb-1">
+        <div className="w-[30%] text-[11px]">
+          거래일자 : <span className="font-bold border-b border-current px-1.5">{tradeDate}</span>
         </div>
-        <div className="w-[44%] text-center flex items-center justify-center gap-1 shrink-0">
-          <span className="text-[11px] font-black border-2 border-current px-2 py-0.2 tracking-[0.15em] whitespace-nowrap">
+        <div className="w-[40%] text-center flex items-center justify-center gap-1.5 shrink-0">
+          <span className="text-[14px] font-black border-2 border-current px-3 py-0.5 tracking-[0.15em] whitespace-nowrap">
             거 래 명 세 서
           </span>
-          <span className="text-[8.5px] font-bold whitespace-nowrap">{typeTitle}</span>
+          <span className="text-[10px] font-bold whitespace-nowrap">{typeTitle}</span>
         </div>
-        <div className="w-[28%] text-right text-[9.5px]">
-          담당사원 : <span className="font-bold border-b border-current px-1">{manager}</span>
+        <div className="w-[30%] text-right text-[11px]">
+          담당사원 : <span className="font-bold border-b border-current px-1.5">{manager}</span>
         </div>
       </div>
 
       {/* 공급자 / 공급받는자 헤더 테이블 */}
-      <table className="w-full border-collapse border border-current text-center mb-0.5">
+      <table className="w-full border-collapse border border-current text-center mb-1">
         <tbody>
           <tr>
-            <td rowSpan={5} className="border border-current w-3 font-bold text-[8px]" style={{ backgroundColor: bgLight }}>
+            <td rowSpan={5} className="border border-current w-4 font-bold text-[9px]" style={{ backgroundColor: bgLight }}>
               공<br />급<br />자
             </td>
-            <td className="border border-current w-12 font-semibold py-0">등록번호</td>
-            <td colSpan={3} className="border border-current font-bold text-left px-1.5">{supplier.bizNo}</td>
-            <td rowSpan={5} className="border border-current w-3 font-bold text-[8px]" style={{ backgroundColor: bgLight }}>
+            <td className="border border-current w-14 font-semibold py-0.5">등록번호</td>
+            <td colSpan={3} className="border border-current font-bold text-left px-2">{supplier.bizNo}</td>
+            <td rowSpan={5} className="border border-current w-4 font-bold text-[9px]" style={{ backgroundColor: bgLight }}>
               공<br />급<br />받<br />는<br />자
             </td>
-            <td className="border border-current w-12 font-semibold py-0">등록번호</td>
-            <td colSpan={3} className="border border-current font-bold text-left px-1.5">{receiver.bizNo}</td>
+            <td className="border border-current w-14 font-semibold py-0.5">등록번호</td>
+            <td colSpan={3} className="border border-current font-bold text-left px-2">{receiver.bizNo}</td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0">상호</td>
-            <td className="border border-current text-left px-1.5 font-bold">{supplier.name}</td>
-            <td className="border border-current w-7 font-semibold">성명</td>
-            <td className="border border-current text-left px-1.5">{supplier.owner}</td>
+            <td className="border border-current font-semibold py-0.5">상호</td>
+            <td className="border border-current text-left px-2 font-bold">{supplier.name}</td>
+            <td className="border border-current w-9 font-semibold">성명</td>
+            <td className="border border-current text-left px-2">{supplier.owner}</td>
             <td className="border border-current font-semibold">상호</td>
-            <td className="border border-current text-left px-1.5 font-bold">{receiver.name}</td>
-            <td className="border border-current w-7 font-semibold">성명</td>
-            <td className="border border-current text-left px-1.5">{receiver.owner}</td>
+            <td className="border border-current text-left px-2 font-bold">{receiver.name}</td>
+            <td className="border border-current w-9 font-semibold">성명</td>
+            <td className="border border-current text-left px-2">{receiver.owner}</td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0">주소</td>
-            <td colSpan={3} className="border border-current text-left px-1.5 text-[8px]">{supplier.address}</td>
+            <td className="border border-current font-semibold py-0.5">주소</td>
+            <td colSpan={3} className="border border-current text-left px-2 text-[10px]">{supplier.address}</td>
             <td className="border border-current font-semibold">주소</td>
-            <td colSpan={3} className="border border-current text-left px-1.5 text-[8px]">{receiver.address}</td>
+            <td colSpan={3} className="border border-current text-left px-2 text-[10px]">{receiver.address}</td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0">업태</td>
-            <td className="border border-current text-left px-1.5">{supplier.bizType}</td>
+            <td className="border border-current font-semibold py-0.5">업태</td>
+            <td className="border border-current text-left px-2">{supplier.bizType}</td>
             <td className="border border-current font-semibold">종목</td>
-            <td className="border border-current text-left px-1.5">{supplier.bizItem}</td>
+            <td className="border border-current text-left px-2">{supplier.bizItem}</td>
             <td className="border border-current font-semibold">업태</td>
-            <td className="border border-current text-left px-1.5">{receiver.bizType}</td>
+            <td className="border border-current text-left px-2">{receiver.bizType}</td>
             <td className="border border-current font-semibold">종목</td>
-            <td className="border border-current text-left px-1.5">{receiver.bizItem}</td>
+            <td className="border border-current text-left px-2">{receiver.bizItem}</td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0">전화</td>
-            <td className="border border-current text-left px-1.5">{supplier.tel}</td>
+            <td className="border border-current font-semibold py-0.5">전화</td>
+            <td className="border border-current text-left px-2">{supplier.tel}</td>
             <td className="border border-current font-semibold">팩스</td>
-            <td className="border border-current text-left px-1.5">{supplier.fax}</td>
+            <td className="border border-current text-left px-2">{supplier.fax}</td>
             <td className="border border-current font-semibold">전화</td>
-            <td className="border border-current text-left px-1.5">{receiver.tel}</td>
+            <td className="border border-current text-left px-2">{receiver.tel}</td>
             <td className="border border-current font-semibold">팩스</td>
-            <td className="border border-current text-left px-1.5">{receiver.fax}</td>
+            <td className="border border-current text-left px-2">{receiver.fax}</td>
           </tr>
         </tbody>
       </table>
 
       {/* 품목 명세 테이블 */}
-      <table className="w-full border-collapse border border-current text-center mb-0.5">
+      <table className="w-full border-collapse border border-current text-center mb-1">
         <thead>
           <tr style={{ backgroundColor: bgLight }}>
-            <th className="border border-current py-0 w-6">NO</th>
-            <th className="border border-current py-0">품명 및 규격</th>
-            <th className="border border-current py-0 w-9">단위</th>
-            <th className="border border-current py-0 w-12">수량</th>
-            <th className="border border-current py-0 w-16">단가</th>
-            <th className="border border-current py-0 w-20">공급가액</th>
-            <th className="border border-current py-0 w-14">세액</th>
+            <th className="border border-current py-1 w-7">NO</th>
+            <th className="border border-current py-1">품명 및 규격</th>
+            <th className="border border-current py-1 w-11">단위</th>
+            <th className="border border-current py-1 w-14">수량</th>
+            <th className="border border-current py-1 w-20">단가</th>
+            <th className="border border-current py-1 w-24">공급가액</th>
+            <th className="border border-current py-1 w-16">세액</th>
           </tr>
         </thead>
         <tbody>
@@ -1085,26 +1021,26 @@ function StatementPaper({
             const rowSupply = (item.qty || 0) * (item.price || 0)
             const rowTax = Math.round(rowSupply * 0.1)
             return (
-              <tr key={item.id} className="h-3">
-                <td className="border border-current font-medium py-0">{idx + 1}</td>
-                <td className="border border-current text-left px-2 font-semibold py-0">{item.nameSpec}</td>
-                <td className="border border-current py-0">{item.unit || 'EA'}</td>
-                <td className="border border-current text-right px-2 py-0">{item.qty ? item.qty.toLocaleString() : ''}</td>
-                <td className="border border-current text-right px-2 py-0">{item.price ? item.price.toLocaleString() : ''}</td>
-                <td className="border border-current text-right px-2 font-semibold py-0">{rowSupply ? rowSupply.toLocaleString() : ''}</td>
-                <td className="border border-current text-right px-2 py-0">{rowTax ? rowTax.toLocaleString() : ''}</td>
+              <tr key={item.id} className="h-5">
+                <td className="border border-current font-medium py-0.5">{idx + 1}</td>
+                <td className="border border-current text-left px-2.5 font-semibold py-0.5">{item.nameSpec}</td>
+                <td className="border border-current py-0.5">{item.unit || 'EA'}</td>
+                <td className="border border-current text-right px-2 py-0.5">{item.qty ? item.qty.toLocaleString() : ''}</td>
+                <td className="border border-current text-right px-2 py-0.5">{item.price ? item.price.toLocaleString() : ''}</td>
+                <td className="border border-current text-right px-2 font-semibold py-0.5">{rowSupply ? rowSupply.toLocaleString() : ''}</td>
+                <td className="border border-current text-right px-2 py-0.5">{rowTax ? rowTax.toLocaleString() : ''}</td>
               </tr>
             )
           })}
           {emptyRows.map((_, idx) => (
-            <tr key={`empty-${idx}`} className="h-3">
-              <td className="border border-current py-0">{items.length + idx + 1}</td>
-              <td className="border border-current py-0"></td>
-              <td className="border border-current py-0"></td>
-              <td className="border border-current py-0"></td>
-              <td className="border border-current py-0"></td>
-              <td className="border border-current py-0"></td>
-              <td className="border border-current py-0"></td>
+            <tr key={`empty-${idx}`} className="h-5">
+              <td className="border border-current py-0.5">{items.length + idx + 1}</td>
+              <td className="border border-current py-0.5"></td>
+              <td className="border border-current py-0.5"></td>
+              <td className="border border-current py-0.5"></td>
+              <td className="border border-current py-0.5"></td>
+              <td className="border border-current py-0.5"></td>
+              <td className="border border-current py-0.5"></td>
             </tr>
           ))}
         </tbody>
@@ -1114,31 +1050,31 @@ function StatementPaper({
       <table className="w-full border-collapse border border-current text-center">
         <tbody>
           <tr>
-            <td className="border border-current w-14 font-semibold py-0" style={{ backgroundColor: bgLight }}>공급가액</td>
-            <td className="border border-current w-24 text-right px-2 font-bold py-0">{totalSupplyValue.toLocaleString()}원</td>
-            <td className="border border-current w-10 font-semibold py-0" style={{ backgroundColor: bgLight }}>세액</td>
-            <td className="border border-current w-20 text-right px-2 font-bold py-0">{totalTax.toLocaleString()}원</td>
-            <td className="border border-current w-14 font-semibold py-0" style={{ backgroundColor: bgLight }}>계인등</td>
-            <td className="border border-current text-left px-2 py-0" rowSpan={2}>
-              <div className="text-[8px] text-gray-800 whitespace-pre-wrap leading-tight font-medium">
+            <td className="border border-current w-16 font-semibold py-1" style={{ backgroundColor: bgLight }}>공급가액</td>
+            <td className="border border-current w-28 text-right px-2 font-bold py-1">{totalSupplyValue.toLocaleString()}원</td>
+            <td className="border border-current w-12 font-semibold py-1" style={{ backgroundColor: bgLight }}>세액</td>
+            <td className="border border-current w-24 text-right px-2 font-bold py-1">{totalTax.toLocaleString()}원</td>
+            <td className="border border-current w-16 font-semibold py-1" style={{ backgroundColor: bgLight }}>계인등</td>
+            <td className="border border-current text-left px-2.5 py-1" rowSpan={2}>
+              <div className="text-[10px] text-gray-800 whitespace-pre-wrap leading-tight font-medium">
                 {memo || '위 금액을 정히 영수(청구)함.'}
               </div>
             </td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0" style={{ backgroundColor: bgLight }}>합계금액</td>
-            <td colSpan={3} className="border border-current text-right px-2 font-black text-[10px] py-0">
+            <td className="border border-current font-semibold py-1" style={{ backgroundColor: bgLight }}>합계금액</td>
+            <td colSpan={3} className="border border-current text-right px-2 font-black text-[12px] py-1">
               {grandTotal.toLocaleString()}원
             </td>
-            <td className="border border-current font-semibold py-0" style={{ backgroundColor: bgLight }}>잔액</td>
+            <td className="border border-current font-semibold py-1" style={{ backgroundColor: bgLight }}>잔액</td>
           </tr>
           <tr>
-            <td className="border border-current font-semibold py-0" style={{ backgroundColor: bgLight }}>전잔액</td>
-            <td className="border border-current text-right px-2 font-medium py-0">{prevBalance.toLocaleString()}원</td>
-            <td className="border border-current font-semibold py-0" style={{ backgroundColor: bgLight }}>입금액</td>
-            <td className="border border-current text-right px-2 font-medium py-0">{deposit.toLocaleString()}원</td>
-            <td className="border border-current font-semibold py-0" style={{ backgroundColor: bgLight }}>현잔액</td>
-            <td className="border border-current text-right px-2 font-bold py-0">{currentBalance.toLocaleString()}원</td>
+            <td className="border border-current font-semibold py-1" style={{ backgroundColor: bgLight }}>전잔액</td>
+            <td className="border border-current text-right px-2 font-medium py-1">{prevBalance.toLocaleString()}원</td>
+            <td className="border border-current font-semibold py-1" style={{ backgroundColor: bgLight }}>입금액</td>
+            <td className="border border-current text-right px-2 font-medium py-1">{deposit.toLocaleString()}원</td>
+            <td className="border border-current font-semibold py-1" style={{ backgroundColor: bgLight }}>현잔액</td>
+            <td className="border border-current text-right px-2 font-bold py-1">{currentBalance.toLocaleString()}원</td>
           </tr>
         </tbody>
       </table>
