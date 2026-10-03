@@ -6,18 +6,17 @@ import { Button } from '@/components/ui/button'
 
 type ItemRow = {
   id: string
-  code: string
-  name: string
-  spec: string
-  qty: number
-  price: number
+  nameSpec: string // 품명 - 규격
+  unit: string     // 단위
+  qty: number      // 수량
+  price: number    // 단가
 }
 
 export function StatementView() {
-  const [date, setDate] = useState('2026-10-03')
-  const [docNo, setDocNo] = useState('1')
+  const [tradeDate, setTradeDate] = useState('2026-10-03')
+  const [manager, setManager] = useState('')
 
-  // 공급자 정보 (기본값)
+  // 공급자 정보
   const [supplier, setSupplier] = useState({
     bizNo: '123-45-67890',
     name: '한전열이엔지',
@@ -25,35 +24,40 @@ export function StatementView() {
     address: '부산광역시 강서구 유통단지1로',
     bizType: '제조',
     bizItem: '전열기구 및 파이프',
+    tel: '051-123-4567',
+    fax: '051-123-4568',
   })
 
   // 공급받는자 정보
   const [receiver, setReceiver] = useState({
-    bizNo: '',
+    bizNo: '987-65-43210',
     name: '신성기공',
     owner: '김철수',
-    address: '부산광역시 사상구 사상로',
+    address: '부산광역시 사상구 사상로 100',
     bizType: '제조',
     bizItem: '기계부품',
+    tel: '051-987-6543',
+    fax: '051-987-6544',
   })
 
-  // 품목 목록 (기본 10줄 맞춤)
+  // 품목 목록 (기본값)
   const [items, setItems] = useState<ItemRow[]>([
-    { id: '1', code: '100000001', name: '히타', spec: '220V', qty: 500, price: 5000 },
+    { id: '1', nameSpec: '시스히타 220V 3KW', unit: 'EA', qty: 10, price: 25000 },
+    { id: '2', nameSpec: '동파이프 15.88t', unit: 'M', qty: 50, price: 4500 },
   ])
 
-  const [prevBalance, setPrevBalance] = useState(0)
-  const [todayDeposit, setTodayDeposit] = useState(0)
+  const [deposit, setDeposit] = useState<number>(0)      // 입금액
+  const [prevBalance, setPrevBalance] = useState<number>(0) // 전잔액
 
   // 품목 추가
   const addItem = () => {
-    if (items.length >= 10) {
-      alert('한 페이지에 최대 10개 품목까지 입력 가능합니다.')
+    if (items.length >= 8) {
+      alert('한 양식당 최대 8개 품목까지 출력하기 적합합니다.')
       return
     }
     setItems([
       ...items,
-      { id: Date.now().toString(), code: '', name: '', spec: '', qty: 1, price: 0 },
+      { id: Date.now().toString(), nameSpec: '', unit: 'EA', qty: 1, price: 0 },
     ])
   }
 
@@ -69,313 +73,419 @@ export function StatementView() {
     )
   }
 
-  // 계산 로직
-  const totalAmount = items.reduce((sum, item) => sum + (item.qty || 0) * (item.price || 0), 0)
-  const totalVat = Math.round(totalAmount * 0.1)
-  const grandTotal = totalAmount + totalVat
-  const todayBalance = prevBalance + grandTotal - todayDeposit
+  // 자동 계산
+  const totalSupplyValue = items.reduce((sum, item) => sum + (item.qty || 0) * (item.price || 0), 0)
+  const totalTax = Math.round(totalSupplyValue * 0.1)
+  const grandTotal = totalSupplyValue + totalTax
+  const currentBalance = prevBalance + grandTotal - deposit
 
   const handlePrint = () => {
     window.print()
   }
 
-  const dateParts = date.split('-')
-  const year = dateParts[0] || '2026'
-  const month = dateParts[1] || '10'
-  const day = dateParts[2] || '03'
-
   return (
-    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
-      {/* 화면 조작용 컨트롤 바 (인쇄 시 숨김) */}
+    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto p-2 sm:p-4 text-xs">
+      {/* 상단 상시 컨트롤 바 */}
       <div className="print:hidden flex flex-wrap items-center justify-between gap-4 bg-card p-4 rounded-xl border border-border shadow-sm">
         <div>
-          <h2 className="text-lg font-bold">거래명세표 발행 및 출력</h2>
+          <h2 className="text-base font-bold">거래명세서 작성 및 인쇄</h2>
           <p className="text-xs text-muted-foreground">
-            입력 후 [인쇄 / PDF 저장] 버튼을 누르면 A4 표준 양식으로 출력됩니다.
+            아래 입력란에서 거래처, 품목, 금액을 직접 수정하신 후 [인쇄 / PDF 저장]을 누르세요.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={addItem} className="gap-1.5 text-xs">
-            <Plus className="size-3.5" /> 품목 추가
-          </Button>
           <Button onClick={handlePrint} className="gap-1.5 text-xs">
-            <Printer className="size-3.5" /> 인쇄 / PDF 저장
+            <Printer className="size-4" /> 인쇄 / PDF 저장
           </Button>
         </div>
       </div>
 
-      {/* 화면 입력용 폼 (인쇄 시 숨김) */}
-      <div className="print:hidden grid gap-4 sm:grid-cols-2 bg-card p-4 rounded-xl border border-border">
-        <div className="space-y-2">
-          <label className="text-xs font-semibold">출고일자 &amp; 일련번호</label>
-          <div className="flex gap-2">
+      {/* 1. 데이터 입력/수정 영역 (인쇄 시 숨김) */}
+      <div className="print:hidden bg-card p-4 rounded-xl border border-border space-y-6">
+        {/* 기본 정보 */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="font-bold text-foreground">거래일자</label>
             <input
               type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={tradeDate}
+              onChange={(e) => setTradeDate(e.target.value)}
+              className="w-full h-8 px-2 border rounded bg-background"
             />
+          </div>
+          <div className="space-y-1.5">
+            <label className="font-bold text-foreground">담당사원</label>
             <input
               type="text"
-              value={docNo}
-              onChange={(e) => setDocNo(e.target.value)}
-              className="flex h-9 w-24 rounded-md border border-input bg-transparent px-3 py-1 text-xs text-center shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              placeholder="호수"
+              value={manager}
+              onChange={(e) => setManager(e.target.value)}
+              placeholder="담당자 이름"
+              className="w-full h-8 px-2 border rounded bg-background"
             />
           </div>
         </div>
-        <div className="space-y-2">
-          <label className="text-xs font-semibold">공급받는자 (거래처명)</label>
-          <input
-            type="text"
-            value={receiver.name}
-            onChange={(e) => setReceiver({ ...receiver, name: e.target.value })}
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            placeholder="상호입력"
-          />
+
+        {/* 공급자 & 공급받는자 수정 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t">
+          {/* 공급자 */}
+          <div className="space-y-2">
+            <h3 className="font-bold text-red-600 border-b pb-1">공급자 정보 (내 회사)</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <input placeholder="등록번호" value={supplier.bizNo} onChange={(e) => setSupplier({ ...supplier, bizNo: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="상호" value={supplier.name} onChange={(e) => setSupplier({ ...supplier, name: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="성명(대표)" value={supplier.owner} onChange={(e) => setSupplier({ ...supplier, owner: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="전화" value={supplier.tel} onChange={(e) => setSupplier({ ...supplier, tel: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="주소" value={supplier.address} onChange={(e) => setSupplier({ ...supplier, address: e.target.value })} className="col-span-2 h-8 px-2 border rounded bg-background" />
+              <input placeholder="업태" value={supplier.bizType} onChange={(e) => setSupplier({ ...supplier, bizType: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="종목" value={supplier.bizItem} onChange={(e) => setSupplier({ ...supplier, bizItem: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="팩스" value={supplier.fax} onChange={(e) => setSupplier({ ...supplier, fax: e.target.value })} className="col-span-2 h-8 px-2 border rounded bg-background" />
+            </div>
+          </div>
+
+          {/* 공급받는자 */}
+          <div className="space-y-2">
+            <h3 className="font-bold text-blue-600 border-b pb-1">공급받는자 정보 (거래처)</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <input placeholder="등록번호" value={receiver.bizNo} onChange={(e) => setReceiver({ ...receiver, bizNo: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="상호" value={receiver.name} onChange={(e) => setReceiver({ ...receiver, name: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="성명(대표)" value={receiver.owner} onChange={(e) => setReceiver({ ...receiver, owner: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="전화" value={receiver.tel} onChange={(e) => setReceiver({ ...receiver, tel: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="주소" value={receiver.address} onChange={(e) => setReceiver({ ...receiver, address: e.target.value })} className="col-span-2 h-8 px-2 border rounded bg-background" />
+              <input placeholder="업태" value={receiver.bizType} onChange={(e) => setReceiver({ ...receiver, bizType: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="종목" value={receiver.bizItem} onChange={(e) => setReceiver({ ...receiver, bizItem: e.target.value })} className="h-8 px-2 border rounded bg-background" />
+              <input placeholder="팩스" value={receiver.fax} onChange={(e) => setReceiver({ ...receiver, fax: e.target.value })} className="col-span-2 h-8 px-2 border rounded bg-background" />
+            </div>
+          </div>
+        </div>
+
+        {/* 품목 입력 리스트 */}
+        <div className="space-y-2 pt-2 border-t">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-foreground">품목 목록 입력</h3>
+            <Button variant="outline" size="sm" onClick={addItem} className="h-7 gap-1 text-xs">
+              <Plus className="size-3.5" /> 품목 추가
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {items.map((item, idx) => (
+              <div key={item.id} className="flex items-center gap-2 bg-muted/40 p-2 rounded border">
+                <span className="w-5 text-center font-bold">{idx + 1}</span>
+                <input
+                  placeholder="품명 - 규격"
+                  value={item.nameSpec}
+                  onChange={(e) => updateItem(item.id, 'nameSpec', e.target.value)}
+                  className="flex-1 h-8 px-2 border rounded bg-background"
+                />
+                <input
+                  placeholder="단위"
+                  value={item.unit}
+                  onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
+                  className="w-16 h-8 px-2 border rounded bg-background text-center"
+                />
+                <input
+                  type="number"
+                  placeholder="수량"
+                  value={item.qty || ''}
+                  onChange={(e) => updateItem(item.id, 'qty', Number(e.target.value))}
+                  className="w-20 h-8 px-2 border rounded bg-background text-right"
+                />
+                <input
+                  type="number"
+                  placeholder="단가"
+                  value={item.price || ''}
+                  onChange={(e) => updateItem(item.id, 'price', Number(e.target.value))}
+                  className="w-24 h-8 px-2 border rounded bg-background text-right"
+                />
+                <span className="w-24 text-right font-semibold pr-1">
+                  {((item.qty || 0) * (item.price || 0)).toLocaleString()}원
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive"
+                  onClick={() => removeItem(item.id)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 잔액 및 입금액 */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t">
+          <div className="space-y-1">
+            <label className="text-muted-foreground">입금액</label>
+            <input
+              type="number"
+              value={deposit || ''}
+              onChange={(e) => setDeposit(Number(e.target.value))}
+              className="w-full h-8 px-2 border rounded bg-background text-right font-bold"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-muted-foreground">전잔액</label>
+            <input
+              type="number"
+              value={prevBalance || ''}
+              onChange={(e) => setPrevBalance(Number(e.target.value))}
+              className="w-full h-8 px-2 border rounded bg-background text-right font-bold"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-muted-foreground">합계액(공급가+세액)</label>
+            <div className="h-8 px-2 border rounded bg-muted flex items-center justify-end font-bold text-foreground">
+              {grandTotal.toLocaleString()}원
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-muted-foreground">현잔액</label>
+            <div className="h-8 px-2 border rounded bg-muted flex items-center justify-end font-bold text-foreground">
+              {currentBalance.toLocaleString()}원
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 실사 출력용 A4 양식 (인쇄 메인 영역) */}
-      <div className="print-area bg-white text-black p-4 space-y-6 select-none border rounded-lg print:border-none print:p-0">
-        {/* 1. 상단 (공급받는자 보관용 - 파란색) */}
-        <StatementSheet
-          color="#1e40af"
-          typeTitle="(공급받는자보관용)"
-          year={year}
-          month={month}
-          day={day}
-          docNo={docNo}
+      {/* 2. 실제 A4 인쇄 양식 영역 */}
+      <div className="bg-white p-4 print:p-0 space-y-6 rounded-lg border print:border-none">
+        {/* 상단 (공급자 보관용 - 빨간색) */}
+        <StatementPaper
+          color="#ef4444"
+          bgLight="#fef2f2"
+          typeTitle="( 공급자 보관용 )"
+          tradeDate={tradeDate}
+          manager={manager}
           supplier={supplier}
           receiver={receiver}
           items={items}
-          totalAmount={totalAmount}
-          totalVat={totalVat}
-          grandTotal={grandTotal}
+          deposit={deposit}
           prevBalance={prevBalance}
-          todayDeposit={todayDeposit}
-          todayBalance={todayBalance}
+          totalSupplyValue={totalSupplyValue}
+          totalTax={totalTax}
+          grandTotal={grandTotal}
+          currentBalance={currentBalance}
         />
 
-        <div className="border-b border-dashed border-gray-300 my-4 print:my-2"></div>
+        {/* 절취선 */}
+        <div className="border-b-2 border-dashed border-gray-400 my-2 print:my-1"></div>
 
-        {/* 2. 하단 (공급자 보관용 - 빨간색) */}
-        <StatementSheet
-          color="#dc2626"
-          typeTitle="(공급자 보관용)"
-          year={year}
-          month={month}
-          day={day}
-          docNo={docNo}
+        {/* 하단 (공급받는자 보관용 - 파란색) */}
+        <StatementPaper
+          color="#2563eb"
+          bgLight="#eff6ff"
+          typeTitle="( 공급받는자 보관용 )"
+          tradeDate={tradeDate}
+          manager={manager}
           supplier={supplier}
           receiver={receiver}
           items={items}
-          totalAmount={totalAmount}
-          totalVat={totalVat}
-          grandTotal={grandTotal}
+          deposit={deposit}
           prevBalance={prevBalance}
-          todayDeposit={todayDeposit}
-          todayBalance={todayBalance}
+          totalSupplyValue={totalSupplyValue}
+          totalTax={totalTax}
+          grandTotal={grandTotal}
+          currentBalance={currentBalance}
         />
       </div>
     </div>
   )
 }
 
-interface StatementSheetProps {
+interface StatementPaperProps {
   color: string
+  bgLight: string
   typeTitle: string
-  year: string
-  month: string
-  day: string
-  docNo: string
-  supplier: {
-    bizNo: string
-    name: string
-    owner: string
-    address: string
-    bizType: string
-    bizItem: string
-  }
-  receiver: {
-    bizNo: string
-    name: string
-    owner: string
-    address: string
-    bizType: string
-    bizItem: string
-  }
+  tradeDate: string
+  manager: string
+  supplier: any
+  receiver: any
   items: ItemRow[]
-  totalAmount: number
-  totalVat: number
-  grandTotal: number
+  deposit: number
   prevBalance: number
-  todayDeposit: number
-  todayBalance: number
+  totalSupplyValue: number
+  totalTax: number
+  grandTotal: number
+  currentBalance: number
 }
 
-function StatementSheet({
+function StatementPaper({
   color,
+  bgLight,
   typeTitle,
-  year,
-  month,
-  day,
-  docNo,
+  tradeDate,
+  manager,
   supplier,
   receiver,
   items,
-  totalAmount,
-  totalVat,
-  grandTotal,
+  deposit,
   prevBalance,
-  todayDeposit,
-  todayBalance,
-}: StatementSheetProps) {
-  const emptyRowCount = Math.max(0, 10 - items.length)
-  const emptyRows = Array.from({ length: emptyRowCount })
+  totalSupplyValue,
+  totalTax,
+  grandTotal,
+  currentBalance,
+}: StatementPaperProps) {
+  // 표 채우기용 빈 줄 계산 (기본 6줄 고정)
+  const maxRows = 6
+  const emptyRows = Array.from({ length: Math.max(0, maxRows - items.length) })
 
   return (
-    <div className="w-full text-[11px] leading-tight font-sans" style={{ color }}>
-      {/* 타이틀 및 날짜 헤더 */}
+    <div className="w-full text-[11px] leading-snug font-sans select-none" style={{ color }}>
+      {/* 최상단 거래일자 및 타이틀 */}
       <div className="flex items-end justify-between mb-1">
-        <div className="border border-current px-2 py-0.5 text-[11px] font-bold">
-          출고일자 &nbsp; {year} 년 &nbsp; {month} 월 &nbsp; {day} 일 &nbsp; - &nbsp; {docNo}
+        <div className="w-1/3">
+          거래일자 : <span className="font-bold border-b border-current px-2">{tradeDate}</span>
         </div>
-        <div className="text-center flex-1">
-          <h1 className="text-2xl font-black tracking-[0.6em] underline decoration-2 underline-offset-4 pl-6">
-            거 래 명 세 표
-          </h1>
+        <div className="w-1/3 text-center flex items-center justify-center gap-2">
+          <span className="text-xl font-black border-2 border-current px-4 py-0.5 tracking-[0.4em]">
+            거 래 명 세 서
+          </span>
+          <span className="text-[10px] font-bold">{typeTitle}</span>
         </div>
-        <div className="text-[11px] font-semibold">{typeTitle}</div>
+        <div className="w-1/3 text-right">
+          담당사원 : <span className="font-bold border-b border-current px-2">{manager}</span>
+        </div>
       </div>
 
-      {/* 공급자 / 공급받는자 정보 테이블 */}
-      <table className="w-full border-collapse border border-current text-center mb-1">
+      {/* 공급자 / 공급받는자 메인 표 */}
+      <table className="w-full border-collapse border-2 border-current text-center mb-1">
         <tbody>
           <tr>
-            <td rowSpan={4} className="border border-current w-5 font-bold">
+            <td rowSpan={5} className="border border-current w-5 font-bold bg-opacity-20" style={{ backgroundColor: bgLight }}>
               공<br />급<br />자
             </td>
-            <td className="border border-current w-12 font-semibold">등록번호</td>
-            <td colSpan={3} className="border border-current font-bold text-sm text-left px-1">
-              {supplier.bizNo}
-            </td>
-            <td rowSpan={4} className="border border-current w-5 font-bold">
+            <td className="border border-current w-14 font-semibold">등록번호</td>
+            <td colSpan={3} className="border border-current font-bold text-left px-1.5">{supplier.bizNo}</td>
+            <td rowSpan={5} className="border border-current w-5 font-bold bg-opacity-20" style={{ backgroundColor: bgLight }}>
               공<br />급<br />받<br />는<br />자
             </td>
-            <td className="border border-current w-12 font-semibold">등록번호</td>
-            <td colSpan={3} className="border border-current font-bold text-sm text-left px-1">
-              {receiver.bizNo}
-            </td>
+            <td className="border border-current w-14 font-semibold">등록번호</td>
+            <td colSpan={3} className="border border-current font-bold text-left px-1.5">{receiver.bizNo}</td>
           </tr>
           <tr>
             <td className="border border-current font-semibold">상호</td>
-            <td className="border border-current text-left px-1 font-bold">{supplier.name}</td>
+            <td className="border border-current text-left px-1.5 font-bold">{supplier.name}</td>
             <td className="border border-current w-8 font-semibold">성명</td>
-            <td className="border border-current text-left px-1">{supplier.owner}</td>
+            <td className="border border-current text-left px-1.5">{supplier.owner}</td>
             <td className="border border-current font-semibold">상호</td>
-            <td className="border border-current text-left px-1 font-bold">{receiver.name}</td>
+            <td className="border border-current text-left px-1.5 font-bold">{receiver.name}</td>
             <td className="border border-current w-8 font-semibold">성명</td>
-            <td className="border border-current text-left px-1">{receiver.owner}</td>
+            <td className="border border-current text-left px-1.5">{receiver.owner}</td>
           </tr>
           <tr>
             <td className="border border-current font-semibold">주소</td>
-            <td colSpan={3} className="border border-current text-left px-1 text-[10px]">
-              {supplier.address}
-            </td>
+            <td colSpan={3} className="border border-current text-left px-1.5 text-[10px]">{supplier.address}</td>
             <td className="border border-current font-semibold">주소</td>
-            <td colSpan={3} className="border border-current text-left px-1 text-[10px]">
-              {receiver.address}
-            </td>
+            <td colSpan={3} className="border border-current text-left px-1.5 text-[10px]">{receiver.address}</td>
           </tr>
           <tr>
             <td className="border border-current font-semibold">업태</td>
-            <td className="border border-current text-left px-1">{supplier.bizType}</td>
-            <td className="border border-current font-semibold">종목</td>
-            <td className="border border-current text-left px-1">{supplier.bizItem}</td>
+            <td className="border border-current text-left px-1.5">{supplier.bizType}</td>
+            <td className="border border-current w-8 font-semibold">종목</td>
+            <td className="border border-current text-left px-1.5">{supplier.bizItem}</td>
             <td className="border border-current font-semibold">업태</td>
-            <td className="border border-current text-left px-1">{receiver.bizType}</td>
-            <td className="border border-current font-semibold">종목</td>
-            <td className="border border-current text-left px-1">{receiver.bizItem}</td>
+            <td className="border border-current text-left px-1.5">{receiver.bizType}</td>
+            <td className="border border-current w-8 font-semibold">종목</td>
+            <td className="border border-current text-left px-1.5">{receiver.bizItem}</td>
+          </tr>
+          <tr>
+            <td className="border border-current font-semibold">전화</td>
+            <td className="border border-current text-left px-1.5">{supplier.tel}</td>
+            <td className="border border-current font-semibold">팩스</td>
+            <td className="border border-current text-left px-1.5">{supplier.fax}</td>
+            <td className="border border-current font-semibold">전화</td>
+            <td className="border border-current text-left px-1.5">{receiver.tel}</td>
+            <td className="border border-current font-semibold">팩스</td>
+            <td className="border border-current text-left px-1.5">{receiver.fax}</td>
           </tr>
         </tbody>
       </table>
 
-      {/* 품목 리스트 테이블 */}
-      <table className="w-full border-collapse border border-current text-center mb-1">
+      {/* 품목 명세 표 (이미지와 똑같은 줄무늬 배경 적용) */}
+      <table className="w-full border-collapse border-2 border-current text-center mb-1">
         <thead>
           <tr className="font-semibold h-6">
-            <th className="border border-current w-8">순번</th>
-            <th className="border border-current w-20">품 목 번 호</th>
-            <th className="border border-current">품 명 &nbsp; / &nbsp; 규 격</th>
-            <th className="border border-current w-12">수 량</th>
-            <th className="border border-current w-16">단 가</th>
-            <th className="border border-current w-20">금 액</th>
-            <th className="border border-current w-16">부 가 세</th>
+            <th className="border border-current w-8">No</th>
+            <th className="border border-current">품 명 - 규 격</th>
+            <th className="border border-current w-12">단위</th>
+            <th className="border border-current w-14">수량</th>
+            <th className="border border-current w-20">단가</th>
+            <th className="border border-current w-24">공급가액</th>
+            <th className="border border-current w-20">세액</th>
           </tr>
         </thead>
         <tbody>
-          {items.map((item: ItemRow, idx: number) => {
-            const amount = (item.qty || 0) * (item.price || 0)
-            const vat = Math.round(amount * 0.1)
+          {items.map((item, idx) => {
+            const supplyVal = (item.qty || 0) * (item.price || 0)
+            const vatVal = Math.round(supplyVal * 0.1)
+            const isEven = idx % 2 === 1
             return (
-              <tr key={item.id} className="h-5">
+              <tr
+                key={item.id}
+                className="h-6"
+                style={{ backgroundColor: isEven ? bgLight : 'transparent' }}
+              >
                 <td className="border border-current">{idx + 1}</td>
-                <td className="border border-current font-mono text-[10px]">{item.code}</td>
-                <td className="border border-current text-left px-1.5 font-medium">
-                  {item.name} {item.spec && `(${item.spec})`}
-                </td>
-                <td className="border border-current text-right px-1">{(item.qty || 0).toLocaleString()}</td>
-                <td className="border border-current text-right px-1">{(item.price || 0).toLocaleString()}</td>
-                <td className="border border-current text-right px-1 font-semibold">{amount.toLocaleString()}</td>
-                <td className="border border-current text-right px-1">{vat.toLocaleString()}</td>
+                <td className="border border-current text-left px-2 font-medium">{item.nameSpec}</td>
+                <td className="border border-current">{item.unit}</td>
+                <td className="border border-current text-right px-1">{item.qty ? item.qty.toLocaleString() : ''}</td>
+                <td className="border border-current text-right px-1">{item.price ? item.price.toLocaleString() : ''}</td>
+                <td className="border border-current text-right px-1 font-semibold">{supplyVal ? supplyVal.toLocaleString() : ''}</td>
+                <td className="border border-current text-right px-1">{vatVal ? vatVal.toLocaleString() : ''}</td>
               </tr>
             )
           })}
-          {emptyRows.map((_, idx) => (
-            <tr key={`empty-${idx}`} className="h-5">
-              <td className="border border-current"></td>
-              <td className="border border-current"></td>
-              <td className="border border-current"></td>
-              <td className="border border-current"></td>
-              <td className="border border-current"></td>
-              <td className="border border-current"></td>
-              <td className="border border-current"></td>
-            </tr>
-          ))}
-          {/* 소계 행 */}
-          <tr className="h-5 font-semibold">
-            <td colSpan={3} className="border border-current">합 &nbsp; &nbsp; 계</td>
-            <td colSpan={2} className="border border-current"></td>
-            <td className="border border-current text-right px-1 font-bold">{totalAmount.toLocaleString()}</td>
-            <td className="border border-current text-right px-1 font-bold">{totalVat.toLocaleString()}</td>
-          </tr>
+          {emptyRows.map((_, idx) => {
+            const isEven = (items.length + idx) % 2 === 1
+            return (
+              <tr
+                key={`empty-${idx}`}
+                className="h-6"
+                style={{ backgroundColor: isEven ? bgLight : 'transparent' }}
+              >
+                <td className="border border-current"></td>
+                <td className="border border-current"></td>
+                <td className="border border-current"></td>
+                <td className="border border-current"></td>
+                <td className="border border-current"></td>
+                <td className="border border-current"></td>
+                <td className="border border-current"></td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
 
-      {/* 하단 집계 및 잔액/인수자 테이블 */}
-      <table className="w-full border-collapse border border-current text-center">
-        <tbody>
-          <tr className="h-6 font-bold">
-            <td className="border border-current w-20">합 계 금 악</td>
-            <td className="border border-current w-20">당 일 출 고</td>
-            <td className="border border-current w-20">당 일 입 금</td>
-            <td className="border border-current w-20">전 일 잔 액</td>
-            <td className="border border-current w-20">당 일 잔 액</td>
-            <td rowSpan={2} className="border border-current w-16 font-semibold">인수자</td>
-            <td rowSpan={2} className="border border-current text-right pr-2 text-muted-foreground font-normal">
-              ( 인 )
-            </td>
-          </tr>
-          <tr className="h-6 font-bold tabular-nums">
-            <td className="border border-current">{grandTotal.toLocaleString()}</td>
-            <td className="border border-current">{grandTotal.toLocaleString()}</td>
-            <td className="border border-current">{todayDeposit.toLocaleString()}</td>
-            <td className="border border-current">{prevBalance.toLocaleString()}</td>
-            <td className="border border-current">{todayBalance.toLocaleString()}</td>
-          </tr>
-        </tbody>
-      </table>
+      {/* 하단 금액 및 잔액 표 (이미지 양식 구조) */}
+      <div className="flex border-2 border-current">
+        <div className="flex-1 border-r border-current p-1 space-y-1">
+          <div className="text-[10px]">미수금 / 참고사항 기록란</div>
+        </div>
+        <div className="w-72">
+          <table className="w-full border-collapse text-center">
+            <tbody>
+              <tr className="border-b border-current h-5">
+                <td className="border-r border-current w-16 bg-opacity-10 font-semibold" style={{ backgroundColor: bgLight }}>입금액</td>
+                <td className="border-r border-current text-right px-1 font-bold">{deposit ? deposit.toLocaleString() : ''}</td>
+                <td className="border-r border-current w-16 bg-opacity-10 font-semibold" style={{ backgroundColor: bgLight }}>합계액</td>
+                <td className="text-right px-1 font-bold">{grandTotal ? grandTotal.toLocaleString() : ''}</td>
+              </tr>
+              <tr className="h-5">
+                <td className="border-r border-current bg-opacity-10 font-semibold" style={{ backgroundColor: bgLight }}>전잔액</td>
+                <td className="border-r border-current text-right px-1 font-bold">{prevBalance ? prevBalance.toLocaleString() : ''}</td>
+                <td className="border-r border-current bg-opacity-10 font-semibold" style={{ backgroundColor: bgLight }}>현잔액</td>
+                <td className="text-right px-1 font-bold">{currentBalance ? currentBalance.toLocaleString() : ''}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 인수자 도장 칸 */}
+      <div className="flex justify-end items-center gap-12 mt-1 px-4 text-xs font-semibold">
+        <span>인수자</span>
+        <span>(인)</span>
+      </div>
     </div>
   )
 }
