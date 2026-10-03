@@ -5,6 +5,7 @@ import {
   BarChart3,
   BookOpen,
   Download,
+  FileText,
   RotateCcw,
   Users,
 } from 'lucide-react'
@@ -12,11 +13,12 @@ import { Button } from '@/components/ui/button'
 import { Dashboard } from '@/components/dashboard'
 import { LedgerView } from '@/components/ledger-view'
 import { ClientsView } from '@/components/clients-view'
+import { StatementView } from '@/components/statement-view'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useFinance } from '@/components/finance-provider'
 
 export function AppShell() {
-  const [tab, setTab] = useState<'dashboard' | 'ledger' | 'clients'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'ledger' | 'clients' | 'statement'>('dashboard')
   const { ledger, totals, resetAll } = useFinance()
 
   // 엑셀 내 숫자에 천단위 쉼표 추가 함수
@@ -33,7 +35,7 @@ export function AppShell() {
 
     const todayStr = new Date().toISOString().slice(0, 10)
 
-    // 1. 재무 요약 리포트 (부가세, 원천징수 제거 및 깔끔한 정리)
+    // 1. 재무 요약 리포트
     const summaryRows = [
       ['[ 재무 요약 리포트 ]'],
       ['총 매출', formatNum(totals.sales)],
@@ -44,7 +46,7 @@ export function AppShell() {
       [],
     ]
 
-    // 2. 전체 장부 내역 (부가세포함, 과세여부 컬럼 제거)
+    // 2. 전체 장부 내역
     const ledgerHeader = ['[ 전체 장부 내역 ]']
     const ledgerColumns = ['구분', '날짜', '거래처명', '결제수단', '금액(원)', '메모']
     
@@ -100,8 +102,8 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* GNB / Header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
+      {/* GNB / Header (인쇄 시 숨김) */}
+      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -128,7 +130,6 @@ export function AppShell() {
               <RotateCcw className="size-3.5" /> 초기화
             </Button>
             
-            {/* 상단 엑셀 다운로드 버튼 */}
             <Button
               type="button"
               variant="outline"
@@ -139,7 +140,6 @@ export function AppShell() {
               <Download className="size-3.5" /> 엑셀 다운로드
             </Button>
 
-            {/* 기존 프로젝트의 ThemeToggle 컴포넌트 사용 */}
             <ThemeToggle />
           </div>
         </div>
@@ -165,15 +165,23 @@ export function AppShell() {
               icon={<Users className="size-4" />}
               label="거래처·대금 관리"
             />
+            {/* 거래명세표 탭 추가 */}
+            <TabButton
+              active={tab === 'statement'}
+              onClick={() => setTab('statement')}
+              icon={<FileText className="size-4" />}
+              label="거래명세표"
+            />
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 print:p-0 print:max-w-none">
         {tab === 'dashboard' && <Dashboard />}
         {tab === 'ledger' && <LedgerView />}
         {tab === 'clients' && <ClientsView />}
+        {tab === 'statement' && <StatementView />}
       </main>
     </div>
   )
