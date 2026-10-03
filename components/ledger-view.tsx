@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Download, Plus, Trash2 } from 'lucide-react'
+import { Check, Download, ChevronLeft, ChevronRight, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -26,6 +26,8 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'cash', label: '현금' },
   { value: 'other', label: '기타' },
 ]
+
+const ITEMS_PER_PAGE = 10
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -60,6 +62,7 @@ export function LedgerView() {
   const { ledger, addLedger } = useFinance()
   const [form, setForm] = useState<FormState>(emptyForm)
   const [filter, setFilter] = useState<LedgerFilter>('all')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const parsedAmount = parseAmount(form.amount)
   const canSubmit = form.party.trim().length > 0 && parsedAmount > 0
@@ -89,6 +92,18 @@ export function LedgerView() {
     if (filter === 'all') return sorted
     return sorted.filter((entry) => entry.kind === filter)
   }, [sorted, filter])
+
+  // 페이지네이션 계산
+  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / ITEMS_PER_PAGE))
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredSorted.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredSorted, currentPage])
+
+  const handleFilterChange = (newFilter: LedgerFilter) => {
+    setFilter(newFilter)
+    setCurrentPage(1)
+  }
 
   const handleDownloadCsv = () => {
     if (filteredSorted.length === 0) return
@@ -214,7 +229,7 @@ export function LedgerView() {
         </Card>
 
         {/* 내역 목록 카드 */}
-        <Card className="w-full min-w-0">
+        <Card className="w-full min-w-0 flex flex-col">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 pb-4">
             <div>
               <CardTitle>입력 내역</CardTitle>
@@ -232,7 +247,7 @@ export function LedgerView() {
                   <button
                     key={tab.value}
                     type="button"
-                    onClick={() => setFilter(tab.value)}
+                    onClick={() => handleFilterChange(tab.value)}
                     className={`rounded-md px-2 py-1 text-xs font-medium transition-colors text-center ${
                       filter === tab.value
                         ? 'bg-background text-foreground shadow-sm'
@@ -255,17 +270,48 @@ export function LedgerView() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0">
+          <CardContent className="p-4 sm:p-6 pt-0 sm:pt-0 flex-1 flex flex-col">
             {filteredSorted.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">
                 아직 입력한 내역이 없습니다.
               </p>
             ) : (
-              <ul className="flex flex-col divide-y divide-border w-full min-w-0">
-                {filteredSorted.map((entry) => (
-                  <LedgerRow key={entry.id} entry={entry} />
-                ))}
-              </ul>
+              <>
+                <ul className="flex flex-col divide-y divide-border w-full min-w-0 min-h-[400px]">
+                  {paginatedItems.map((entry) => (
+                    <LedgerRow key={entry.id} entry={entry} />
+                  ))}
+                </ul>
+
+                {/* 페이지네이션 콘트롤 */}
+                {totalPages > 1 && (
+                  <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      {currentPage} / {totalPages} 페이지
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        <ChevronLeft className="size-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        <ChevronRight className="size-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -275,8 +321,111 @@ export function LedgerView() {
 }
 
 function LedgerRow({ entry }: { entry: LedgerEntry }) {
-  const { deleteLedger } = useFinance()
+  const { updateLedger, deleteLedger } = useFinance()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<FormState>({
+    date: entry.date,
+    party: entry.party,
+    kind: entry.kind,
+    amount: Number(entry.amount).toLocaleString('ko-KR'),
+    paymentMethod: entry.paymentMethod || 'transfer',
+    memo: entry.memo || '',
+  })
+
   const isSale = entry.kind === 'sale'
+
+  const startEdit = () => {
+    setDraft({
+      date: entry.date,
+      party: entry.party,
+      kind: entry.kind,
+      amount: Number(entry.amount).toLocaleString('ko-KR'),
+      paymentMethod: entry.paymentMethod || 'transfer',
+      memo: entry.memo || '',
+    })
+    setEditing(true)
+  }
+
+  if (editing) {
+    const parsed = parseAmount(draft.amount)
+    const save = () => {
+      if (!draft.party.trim() || parsed <= 0) return
+      updateLedger(entry.id, {
+        date: draft.date,
+        party: draft.party.trim(),
+        kind: draft.kind,
+        amount: parsed,
+        paymentMethod: draft.paymentMethod,
+        memo: draft.memo.trim(),
+      })
+      setEditing(false)
+    }
+
+    return (
+      <li className="flex flex-col gap-3 py-4 w-full min-w-0">
+        <div className="grid gap-2 sm:grid-cols-2 w-full min-w-0">
+          <select
+            value={draft.kind}
+            onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.value as LedgerKind }))}
+            className="input w-full min-w-0 text-xs sm:text-sm"
+          >
+            <option value="sale">매출</option>
+            <option value="expense">지출</option>
+          </select>
+          <input
+            type="date"
+            value={draft.date}
+            onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))}
+            className="input w-full min-w-0 text-xs sm:text-sm"
+          />
+          <input
+            type="text"
+            value={draft.party}
+            onChange={(e) => setDraft((d) => ({ ...d, party: e.target.value }))}
+            className="input w-full min-w-0 text-xs sm:text-sm"
+            placeholder="거래처명"
+          />
+          <select
+            value={draft.paymentMethod}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, paymentMethod: e.target.value as PaymentMethod }))
+            }
+            className="input w-full min-w-0 text-xs sm:text-sm"
+          >
+            {PAYMENT_METHODS.map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <input
+            inputMode="numeric"
+            value={draft.amount}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, amount: formatNumberInput(e.target.value) }))
+            }
+            className="input text-right tabular-nums sm:col-span-2 w-full min-w-0 text-xs sm:text-sm"
+            placeholder="금액"
+          />
+          <input
+            type="text"
+            value={draft.memo}
+            onChange={(e) => setDraft((d) => ({ ...d, memo: e.target.value }))}
+            className="input sm:col-span-2 w-full min-w-0 text-xs sm:text-sm"
+            placeholder="메모"
+          />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="gap-1.5 h-8 text-xs">
+            <X className="size-3.5" /> 취소
+          </Button>
+          <Button size="sm" onClick={save} className="gap-1.5 h-8 text-xs">
+            <Check className="size-3.5" /> 저장
+          </Button>
+        </div>
+      </li>
+    )
+  }
 
   return (
     <li className="flex items-center gap-2 sm:gap-3 py-3.5 w-full min-w-0">
@@ -310,6 +459,14 @@ function LedgerRow({ entry }: { entry: LedgerEntry }) {
         {formatWon(entry.amount)}
       </span>
       <div className="flex shrink-0 gap-0.5 sm:gap-1">
+        <button
+          type="button"
+          onClick={startEdit}
+          aria-label="수정"
+          className="rounded-md p-1 sm:p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <Pencil className="size-3.5 sm:size-4" />
+        </button>
         <button
           type="button"
           onClick={() => deleteLedger(entry.id)}
