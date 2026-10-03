@@ -178,31 +178,6 @@ export function StatementView() {
           todayBalance={todayBalance}
         />
       </div>
-
-      {/* A4 인쇄 전용 Style */}
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          .print-area,
-          .print-area * {
-            visibility: visible;
-          }
-          .print-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            margin: 0;
-            padding: 0;
-          }
-          @page {
-            size: A4 portrait;
-            margin: 8mm;
-          }
-        }
-      `}</style>
     </div>
   )
 }
@@ -348,7 +323,7 @@ function StatementSheet({
                 <td className="border border-current">{idx + 1}</td>
                 <td className="border border-current font-mono text-[10px]">{item.code}</td>
                 <td className="border border-current text-left px-1.5 font-medium">
-                  {item.name} {item.spec &amp;&amp; `(${item.spec})`}
+                  {item.name} {item.spec && `(${item.spec})`}
                 </td>
                 <td className="border border-current text-right px-1">{(item.qty || 0).toLocaleString()}</td>
                 <td className="border border-current text-right px-1">{(item.price || 0).toLocaleString()}</td>
@@ -382,7 +357,7 @@ function StatementSheet({
       <table className="w-full border-collapse border border-current text-center">
         <tbody>
           <tr className="h-6 font-bold">
-            <td className="border border-current w-20">합 계 금 액</td>
+            <td className="border border-current w-20">합 계 금 악</td>
             <td className="border border-current w-20">당 일 출 고</td>
             <td className="border border-current w-20">당 일 입 금</td>
             <td className="border border-current w-20">전 일 잔 액</td>
