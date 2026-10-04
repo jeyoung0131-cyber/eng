@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button'
 
 type ItemRow = {
   id: string
-  nameSpec: string // 품명 - 규격
-  unit: string     // 단위 (기본 EA)
-  qty: number      // 수량
-  price: number    // 단가
+  nameSpec: string
+  unit: string
+  qty: number
+  price: number
 }
 
 type CompanyInfo = {
@@ -21,7 +21,7 @@ type CompanyInfo = {
   bizItem: string
   tel: string
   fax: string
-  sealUrl?: string // 도장 이미지 (Base64 또는 기본 이미지 경로)
+  sealUrl?: string
 }
 
 type SavedItem = {
@@ -43,11 +43,9 @@ export function StatementView() {
     return today.toISOString().split('T')[0]
   })
 
-  // 담당사원 & 참고사항 상태
   const [manager, setManager] = useState('')
   const [memo, setMemo] = useState('')
 
-  // 공급자 정보 (내 회사) - 기본 도장 이미지 기본값 반영
   const [supplier, setSupplier] = useState<CompanyInfo>({
     bizNo: '239-40-01559',
     name: '한전열이엔지',
@@ -57,10 +55,9 @@ export function StatementView() {
     bizItem: '전자상거래 소매업',
     tel: '010-5520-5338',
     fax: '',
-    sealUrl: '/fc7b20f1-92cd-4885-9316-c919271c9fff.png', // 기본 도장 적용
+    sealUrl: '/fc7b20f1-92cd-4885-9316-c919271c9fff.png',
   })
 
-  // 공급받는자 정보 (거래처)
   const [receiver, setReceiver] = useState<CompanyInfo>({
     bizNo: '',
     name: '',
@@ -72,16 +69,14 @@ export function StatementView() {
     fax: '',
   })
 
-  // 명세표 품목 목록 (기본 단위: EA, 공란 2줄)
   const [items, setItems] = useState<ItemRow[]>([
     { id: '1', nameSpec: '', unit: 'EA', qty: 0, price: 0 },
     { id: '2', nameSpec: '', unit: 'EA', qty: 0, price: 0 },
   ])
 
-  const [deposit, setDeposit] = useState<number>(0)       // 입금액
-  const [prevBalance, setPrevBalance] = useState<number>(0) // 전잔액
+  const [deposit, setDeposit] = useState<number>(0)
+  const [prevBalance, setPrevBalance] = useState<number>(0)
 
-  // --- 저장소 (LocalStorage) 데이터 상태 ---
   const [savedReceivers, setSavedReceivers] = useState<CompanyInfo[]>([])
   const [savedItems, setSavedItems] = useState<SavedItem[]>([])
   const [savedManagers, setSavedManagers] = useState<string[]>([])
@@ -89,13 +84,11 @@ export function StatementView() {
 
   const [selectedReceiverName, setSelectedReceiverName] = useState('')
 
-  // 모달 상태
   const [isReceiverModalOpen, setIsReceiverModalOpen] = useState(false)
   const [isItemModalOpen, setIsItemModalOpen] = useState(false)
   const [isManagerModalOpen, setIsManagerModalOpen] = useState(false)
   const [isMemoModalOpen, setIsMemoModalOpen] = useState(false)
 
-  // 수정용 임시 상태
   const [editingReceiver, setEditingReceiver] = useState<CompanyInfo | null>(null)
   const [editingItem, setEditingItem] = useState<SavedItem | null>(null)
   const [editingManagerIndex, setEditingManagerIndex] = useState<number | null>(null)
@@ -104,7 +97,6 @@ export function StatementView() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 첫 로드 시 브라우저에 저장된 데이터 불러오기
   useEffect(() => {
     const loadedSupplier = localStorage.getItem('my_supplier_info')
     if (loadedSupplier) {
@@ -136,13 +128,11 @@ export function StatementView() {
     }
   }, [])
 
-  // 1. 내 회사 정보 저장
   const saveSupplierInfo = () => {
     localStorage.setItem('my_supplier_info', JSON.stringify(supplier))
     alert('공급자(내 회사) 정보 및 도장이 저장되었습니다.')
   }
 
-  // 도장 이미지 업로드 핸들러
   const handleSealUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -154,7 +144,6 @@ export function StatementView() {
     reader.readAsDataURL(file)
   }
 
-  // 2. 거래처 저장 / 수정 / 삭제
   const saveCurrentReceiver = () => {
     if (!receiver.name) {
       alert('거래처 상호명을 입력해주세요.')
@@ -195,7 +184,6 @@ export function StatementView() {
     alert('거래처 정보가 수정되었습니다.')
   }
 
-  // 3. 담당사원 저장 / 수정 / 삭제
   const saveCurrentManager = () => {
     if (!manager.trim()) {
       alert('담당사원 이름을 입력해주세요.')
@@ -229,7 +217,6 @@ export function StatementView() {
     alert('담당사원이 수정되었습니다.')
   }
 
-  // 4. 참고사항(메모) 저장 / 수정 / 삭제
   const saveCurrentMemo = () => {
     if (!memo.trim()) {
       alert('참고사항 내용을 입력해주세요.')
@@ -266,7 +253,6 @@ export function StatementView() {
     alert('참고사항이 수정되었습니다.')
   }
 
-  // 5. 품목 마스터 저장 / 수정 / 삭제
   const saveToItemMaster = (item: ItemRow) => {
     if (!item.nameSpec) {
       alert('품명-규격을 입력해주세요.')
@@ -314,7 +300,6 @@ export function StatementView() {
     alert('품목 정보가 수정되었습니다.')
   }
 
-  // 명세 행 관리
   const addItemRow = () => {
     if (items.length >= 8) {
       alert('한 양식당 최대 8개 품목까지 입력 가능합니다.')
@@ -336,7 +321,6 @@ export function StatementView() {
     )
   }
 
-  // 금액 자동 계산
   const totalSupplyValue = items.reduce((sum, item) => sum + (item.qty || 0) * (item.price || 0), 0)
   const totalTax = Math.round(totalSupplyValue * 0.1)
   const grandTotal = totalSupplyValue + totalTax
@@ -348,7 +332,6 @@ export function StatementView() {
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto p-2 sm:p-4 text-xs">
-      {/* 인쇄 전용 스타일 */}
       <style jsx global>{`
         @media print {
           @page {
@@ -383,7 +366,6 @@ export function StatementView() {
         }
       `}</style>
 
-      {/* 컨트롤 바 */}
       <div className="print:hidden flex flex-wrap items-center justify-between gap-4 bg-card p-4 rounded-xl border border-border shadow-sm">
         <div>
           <h2 className="text-base font-bold">거래명세서 작성 및 관리</h2>
@@ -398,7 +380,6 @@ export function StatementView() {
         </div>
       </div>
 
-      {/* 1. 데이터 입력/수정 영역 */}
       <div className="print:hidden bg-card p-4 rounded-xl border border-border space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
@@ -468,7 +449,6 @@ export function StatementView() {
               <input placeholder="팩스" value={supplier.fax} onChange={(e) => setSupplier({ ...supplier, fax: e.target.value })} className="col-span-2 h-8 px-2 border rounded bg-background" />
             </div>
 
-            {/* 도장 이미지 업로드 섹션 */}
             <div className="flex items-center gap-3 pt-2 bg-muted/30 p-2 rounded border">
               <div className="flex-1">
                 <span className="font-semibold text-foreground">회사 직인(도장) 이미지</span>
@@ -686,9 +666,7 @@ export function StatementView() {
         </div>
       </div>
 
-      {/* 2. 실제 A4 인쇄 양식 영역 */}
       <div className="bg-white p-3 space-y-1.5 rounded-lg border print:border-none w-full max-w-[210mm] mx-auto print:container">
-        {/* 상단 (공급자 보관용 - 빨간색) */}
         <StatementPaper
           color="#ef4444"
           bgLight="#fef2f2"
@@ -707,12 +685,10 @@ export function StatementView() {
           currentBalance={currentBalance}
         />
 
-        {/* 절취선 */}
         <div className="border-b border-dashed border-gray-400 my-1.5 py-0.5 w-full shrink-0 text-center">
           <span className="text-[10px] text-gray-500 bg-white px-3 font-medium">✂ ------------------------------------------------ 절 취 선 ------------------------------------------------ ✂</span>
         </div>
 
-        {/* 하단 (공급받는자 보관용 - 파란색) */}
         <StatementPaper
           color="#2563eb"
           bgLight="#eff6ff"
@@ -732,7 +708,6 @@ export function StatementView() {
         />
       </div>
 
-      {/* --- 모달 영역들 --- */}
       {isManagerModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-xl w-full max-w-md p-4 space-y-4 shadow-lg">
@@ -986,7 +961,6 @@ function StatementPaper({
         </div>
       </div>
 
-      {/* 공급자 / 공급받는자 헤더 테이블 */}
       <table className="w-full border-collapse border border-current text-center mb-1.5 relative">
         <tbody>
           <tr>
@@ -1005,7 +979,6 @@ function StatementPaper({
             <td className="border border-current font-semibold py-1">상호</td>
             <td className="border border-current text-left px-2 font-bold">{supplier.name}</td>
             <td className="border border-current w-9 font-semibold">성명</td>
-            {/* 성명 칸에 도장을 성명 글자와 겹치지 않게 우측 옆 공간으로 배치 */}
             <td className="border border-current text-left px-2 relative">
               <span>{supplier.owner}</span>
               {supplier.sealUrl && (
@@ -1048,7 +1021,6 @@ function StatementPaper({
         </tbody>
       </table>
 
-      {/* 품목 명세 테이블 */}
       <table className="w-full border-collapse border border-current text-center mb-1.5">
         <thead>
           <tr style={{ backgroundColor: bgLight }}>
@@ -1091,7 +1063,6 @@ function StatementPaper({
         </tbody>
       </table>
 
-      {/* 하단 요약 및 미수금/참고사항 테이블 */}
       <table className="w-full border-collapse border border-current text-center">
         <tbody>
           <tr>
