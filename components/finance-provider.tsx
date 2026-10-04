@@ -38,6 +38,9 @@ type FinanceContextValue = {
   totals: ReturnType<typeof computeTotals>
   monthly: ReturnType<typeof monthlySeries>
   isLoading: boolean
+  isLocked: boolean // 잠금 상태 여부
+  unlockFinance: (password: string) => boolean // 잠금 해제 함수
+  lockFinance: () => void // 다시 잠그는 함수
   addClient: (c: NewClient) => void
   updateClient: (id: string, c: NewClient) => void
   deleteClient: (id: string) => void
@@ -66,6 +69,23 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [ledger, setLedger] = useState<LedgerEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  
+  // 잠금 상태 관리 (기본값: true = 잠김 상태)
+  const [isLocked, setIsLocked] = useState(true)
+
+  // 비밀번호 확인 및 잠금 해제 (기본 비번: '1234' - 필요시 변경하세요)
+  const unlockFinance = useCallback((password: string) => {
+    if (password === '0411') {
+      setIsLocked(false)
+      return true
+    }
+    alert('비밀번호가 틀렸습니다.')
+    return false
+  }, [])
+
+  const lockFinance = useCallback(() => {
+    setIsLocked(true)
+  }, [])
 
   const fetchData = useCallback(async () => {
     try {
@@ -119,41 +139,48 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   )
 
   const resetData = useCallback(async () => {
+    if (isLocked) {
+      alert('잠금 상태에서는 초기화할 수 없습니다. 먼저 잠금을 해제해주세요.')
+      return
+    }
     setClients([])
     setProjects([])
     setExpenses([])
     setLedger([])
     await saveData({ clients: [], projects: [], expenses: [], ledger: [] })
-  }, [saveData])
+  }, [isLocked, saveData])
 
   const addClient = useCallback(
     (c: NewClient) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const newClient: Client = { id: uid('c'), ...c }
       const next = [...clients, newClient]
       setClients(next)
       saveData({ clients: next })
     },
-    [clients, saveData],
+    [isLocked, clients, saveData],
   )
 
   const updateClient = useCallback(
     (id: string, c: NewClient) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const next = clients.map((item) => (item.id === id ? { ...item, ...c } : item))
       setClients(next)
       saveData({ clients: next })
     },
-    [clients, saveData],
+    [isLocked, clients, saveData],
   )
 
   const deleteClient = useCallback(
     (id: string) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const nextClients = clients.filter((item) => item.id !== id)
       const nextProjects = projects.filter((item) => item.clientId !== id)
       setClients(nextClients)
       setProjects(nextProjects)
       saveData({ clients: nextClients, projects: nextProjects })
     },
-    [clients, projects, saveData],
+    [isLocked, clients, projects, saveData],
   )
 
   const buildStages = (supplyAmount: number, ratios: Record<StageKey, number>) =>
@@ -165,6 +192,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 
   const addProject = useCallback(
     (p: NewProject) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const today = new Date().toISOString().slice(0, 10)
       const newProject: SaleProject = {
         id: uid('p'),
@@ -178,11 +206,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       setProjects(next)
       saveData({ projects: next })
     },
-    [projects, saveData],
+    [isLocked, projects, saveData],
   )
 
   const updateProject = useCallback(
     (id: string, p: NewProject) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const today = new Date().toISOString().slice(0, 10)
       const current = projects.find((item) => item.id === id)
       const rebuilt = buildStages(p.supplyAmount, p.stageRatios)
@@ -208,20 +237,22 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       setProjects(next)
       saveData({ projects: next })
     },
-    [projects, saveData],
+    [isLocked, projects, saveData],
   )
 
   const deleteProject = useCallback(
     (id: string) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const next = projects.filter((item) => item.id !== id)
       setProjects(next)
       saveData({ projects: next })
     },
-    [projects, saveData],
+    [isLocked, projects, saveData],
   )
 
   const toggleStage = useCallback(
     (projectId: string, stageKey: StageKey) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const today = new Date().toISOString().slice(0, 10)
       const target = projects.find((p) => p.id === projectId)
       if (!target) return
@@ -238,65 +269,71 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       setProjects(next)
       saveData({ projects: next })
     },
-    [projects, saveData],
+    [isLocked, projects, saveData],
   )
 
   const addLedger = useCallback(
     (e: NewLedger) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const newEntry: LedgerEntry = { id: uid('l'), ...e }
       const next = [newEntry, ...ledger]
       setLedger(next)
       saveData({ ledger: next })
     },
-    [ledger, saveData],
+    [isLocked, ledger, saveData],
   )
 
   const updateLedger = useCallback(
     (id: string, e: NewLedger) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const next = ledger.map((item) => (item.id === id ? { ...item, ...e } : item))
       setLedger(next)
       saveData({ ledger: next })
     },
-    [ledger, saveData],
+    [isLocked, ledger, saveData],
   )
 
   const deleteLedger = useCallback(
     (id: string) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const next = ledger.filter((item) => item.id !== id)
       setLedger(next)
       saveData({ ledger: next })
     },
-    [ledger, saveData],
+    [isLocked, ledger, saveData],
   )
 
   const addExpense = useCallback(
     (e: NewExpense) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const newExpense: Expense = { id: uid('e'), ...e }
       const next = [newExpense, ...expenses]
       setExpenses(next)
       saveData({ expenses: next })
     },
-    [expenses, saveData],
+    [isLocked, expenses, saveData],
   )
 
   const updateExpense = useCallback(
     (id: string, e: NewExpense) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const next = expenses.map((item) =>
         item.id === id ? { ...item, ...e } : item,
       )
       setExpenses(next)
       saveData({ expenses: next })
     },
-    [expenses, saveData],
+    [isLocked, expenses, saveData],
   )
 
   const deleteExpense = useCallback(
     (id: string) => {
+      if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
       const next = expenses.filter((item) => item.id !== id)
       setExpenses(next)
       saveData({ expenses: next })
     },
-    [expenses, saveData],
+    [isLocked, expenses, saveData],
   )
 
   const totals = useMemo(
@@ -317,6 +354,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       totals,
       monthly,
       isLoading,
+      isLocked,
+      unlockFinance,
+      lockFinance,
       addClient,
       updateClient,
       deleteClient,
@@ -340,6 +380,9 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       totals,
       monthly,
       isLoading,
+      isLocked,
+      unlockFinance,
+      lockFinance,
       addClient,
       updateClient,
       deleteClient,
