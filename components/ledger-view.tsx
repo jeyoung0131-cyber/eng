@@ -93,7 +93,6 @@ export function LedgerView() {
     return sorted.filter((entry) => entry.kind === filter)
   }, [sorted, filter])
 
-  // 페이지네이션 계산
   const totalPages = Math.max(1, Math.ceil(filteredSorted.length / ITEMS_PER_PAGE))
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE
@@ -109,7 +108,6 @@ export function LedgerView() {
     if (filteredSorted.length === 0) return
 
     const headers = ['구분', '일자', '거래처명', '결제수단', '금액', '메모']
-
     const rows = filteredSorted.map((entry) => [
       LEDGER_KIND_LABELS[entry.kind],
       entry.date,
@@ -134,7 +132,6 @@ export function LedgerView() {
   return (
     <div className="flex flex-col gap-6 w-full max-w-full overflow-hidden">
       <div className="grid gap-6 lg:grid-cols-[380px_1fr] items-start w-full min-w-0">
-        {/* 입력 폼 카드 */}
         <Card className="w-full min-w-0 h-fit lg:sticky lg:top-32">
           <CardHeader className="p-4 sm:p-6">
             <CardTitle>매출 / 지출 입력</CardTitle>
@@ -228,7 +225,6 @@ export function LedgerView() {
           </CardContent>
         </Card>
 
-        {/* 내역 목록 카드 */}
         <Card className="w-full min-w-0 flex flex-col">
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 sm:p-6 pb-4">
             <div>
@@ -283,7 +279,6 @@ export function LedgerView() {
                   ))}
                 </ul>
 
-                {/* 페이지네이션 콘트롤 */}
                 {totalPages > 1 && (
                   <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">
