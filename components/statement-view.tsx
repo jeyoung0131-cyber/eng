@@ -37,9 +37,6 @@ type SavedMemo = {
   content: string
 }
 
-// 기본 제공해주신 도장 이미지 경로 (Public 폴더에 넣거나 Base64/외부 경로로 활용 가능)
-const DEFAULT_SEAL_URL = '/images/seal.png' // 또는 업로드된 도장 데이터
-
 export function StatementView() {
   const [tradeDate, setTradeDate] = useState(() => {
     const today = new Date()
@@ -113,7 +110,6 @@ export function StatementView() {
     if (loadedSupplier) {
       try { 
         const parsed = JSON.parse(loadedSupplier)
-        // 저장된 정보에 도장이 없으면 기본 도장 채우기
         if (!parsed.sealUrl) parsed.sealUrl = '/fc7b20f1-92cd-4885-9316-c919271c9fff.png'
         setSupplier(parsed) 
       } catch (e) {}
