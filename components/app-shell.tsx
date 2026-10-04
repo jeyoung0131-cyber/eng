@@ -6,6 +6,8 @@ import {
   BookOpen,
   Download,
   FileText,
+  Lock,
+  Unlock,
   RotateCcw,
   Users,
 } from 'lucide-react'
@@ -19,7 +21,21 @@ import { useFinance } from '@/components/finance-provider'
 
 export function AppShell() {
   const [tab, setTab] = useState<'dashboard' | 'ledger' | 'clients' | 'statement'>('dashboard')
-  const { ledger, totals, resetAll } = useFinance()
+  const { ledger, totals, resetData, isLocked, unlockFinance, lockFinance } = useFinance()
+
+  // 잠금/해제 버튼 핸들러
+  const handleToggleLock = () => {
+    if (isLocked) {
+      const pwd = prompt('편집 모드 비밀번호를 입력하세요 (기본: 1234):')
+      if (pwd !== null) {
+        unlockFinance(pwd)
+      }
+    } else {
+      if (confirm('다시 읽기 전용(잠금) 모드로 전환하시겠습니까?')) {
+        lockFinance()
+      }
+    }
+  }
 
   // 엑셀 내 숫자에 천단위 쉼표 추가 함수
   const formatNum = (num: number) => `"${(num || 0).toLocaleString('ko-KR')}"`
@@ -116,13 +132,29 @@ export function AppShell() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* 잠금 / 편집 모드 토글 버튼 */}
+            <Button
+              type="button"
+              variant={isLocked ? 'outline' : 'default'}
+              size="sm"
+              onClick={handleToggleLock}
+              className={`gap-1.5 text-xs ${!isLocked ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}`}
+            >
+              {isLocked ? <Lock className="size-3.5" /> : <Unlock className="size-3.5" />}
+              {isLocked ? '잠김 (읽기 전용)' : '편집 모드 중'}
+            </Button>
+
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={() => {
+                if (isLocked) {
+                  alert('잠금 상태에서는 초기화할 수 없습니다. 먼저 편집 모드로 전환해주세요.')
+                  return
+                }
                 if (confirm('모든 데이터가 초기화됩니다. 계속하시겠습니까?')) {
-                  resetAll()
+                  resetData()
                 }
               }}
               className="gap-1.5 text-xs text-muted-foreground"
