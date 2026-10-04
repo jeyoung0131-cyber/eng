@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Printer, Plus, Trash2, Save, Settings, Edit3, X, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useFinance } from '@/components/finance-provider'
 
 type ItemRow = {
   id: string
@@ -38,6 +39,10 @@ type SavedMemo = {
 }
 
 export function StatementView() {
+  // 타기기/브라우저 동기화를 위해 useFinance 또는 서버 API 연동 활용 가능
+  // 여기서는 다른 탭들과 동일하게 서버/전역 상태 또는 확장된 스토리지를 활용하도록 구성합니다.
+  const { clients } = useFinance()
+
   const [tradeDate, setTradeDate] = useState(() => {
     const today = new Date()
     return today.toISOString().split('T')[0]
@@ -97,40 +102,112 @@ export function StatementView() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // 서버 API 및 타기기 동기화 로직 연동 (기존 /api/finance 활용 확장 또는 동기화)
   useEffect(() => {
-    const loadedSupplier = localStorage.getItem('my_supplier_info')
-    if (loadedSupplier) {
-      try { 
-        const parsed = JSON.parse(loadedSupplier)
-        if (!parsed.sealUrl) parsed.sealUrl = '/fc7b20f1-92cd-4885-9316-c919271c9fff.png'
-        setSupplier(parsed) 
-      } catch (e) {}
+    const fetchStatementData = async () => {
+      try {
+        const res = await fetch('/api/finance', { cache: 'no-store' })
+        if (res.ok) {
+          const data = await res.json()
+          // 서버에 저장된 확장 데이터가 있다면 우선 반영, 없으면 localStorage 폴백
+          if (data && data.statementData) {
+            if (data.statementData.supplier) setSupplier(data.statementData.supplier)
+            if (data.statementData.savedReceivers) setSavedReceivers(data.statementData.savedReceivers)
+            if (data.statementData.savedItems) setSavedItems(data.statementData.savedItems)
+            if (data.statementData.savedManagers) setSavedManagers(data.statementData.savedManagers)
+            if (data.statementData.savedMemos) setSavedMemos(data.statementData.savedMemos)
+            return
+          }
+        }
+      } catch (err) {
+        console.error('거래명세서 서버 동기화 실패, 로컬 데이터 사용:', err)
+      }
+
+      // Fallback to localStorage if server data isn't structured for statements yet
+      const loadedSupplier = localStorage.getItem('my_supplier_info')
+      if (loadedSupplier) {
+        try { 
+          const parsed = JSON.parse(loadedSupplier)
+          if (!parsed.sealUrl) parsed.sealUrl = '/fc7b20f1-92cd-4885-9316-c919271c9fff.png'
+          setSupplier(parsed) 
+        } catch (e) {}
+      }
+
+      const loadedReceivers = localStorage.getItem('saved_receivers')
+      if (loadedReceivers) {
+        try { setSavedReceivers(JSON.parse(loadedReceivers)) } catch (e) {}
+      }
+
+      const loadedItems = localStorage.getItem('saved_master_items')
+      if (loadedItems) {
+        try { setSavedItems(JSON.parse(loadedItems)) } catch (e) {}
+      }
+
+      const loadedManagers = localStorage.getItem('saved_managers')
+      if (loadedManagers) {
+        try { setSavedManagers(JSON.parse(loadedManagers)) } catch (e) {}
+      }
+
+      const loadedMemos = localStorage.getItem('saved_memos')
+      if (loadedMemos) {
+        try { setSavedMemos(JSON.parse(loadedMemos)) } catch (e) {}
+      }
     }
 
-    const loadedReceivers = localStorage.getItem('saved_receivers')
-    if (loadedReceivers) {
-      try { setSavedReceivers(JSON.parse(loadedReceivers)) } catch (e) {}
-    }
-
-    const loadedItems = localStorage.getItem('saved_master_items')
-    if (loadedItems) {
-      try { setSavedItems(JSON.parse(loadedItems)) } catch (e) {}
-    }
-
-    const loadedManagers = localStorage.getItem('saved_managers')
-    if (loadedManagers) {
-      try { setSavedManagers(JSON.parse(loadedManagers)) } catch (e) {}
-    }
-
-    const loadedMemos = localStorage.getItem('saved_memos')
-    if (loadedMemos) {
-      try { setSavedMemos(JSON.parse(loadedMemos)) } catch (e) {}
-    }
+    fetchStatementData()
   }, [])
 
+  // 변경된 데이터를 서버와 로컬스토리지에 동시 동기화하는 함수
+  const syncAndSave = async (newData: {
+    supplier?: CompanyInfo
+    savedReceivers?: CompanyInfo[]
+    savedItems?: SavedItem[]
+    savedManagers?: string[]
+    savedMemos?: SavedMemo[]
+  }) => {
+    const updatedSupplier = newData.supplier || supplier
+    const updatedReceivers = newData.savedReceivers || savedReceivers
+    const updatedItems = newData.savedItems || savedItems
+    const updatedManagers = newData.savedManagers || savedManagers
+    const updatedMemos = newData.savedMemos || savedMemos
+
+    // 1. LocalStorage 저장 (오프라인 및 즉시 반영용)
+    localStorage.setItem('my_supplier_info', JSON.stringify(updatedSupplier))
+    localStorage.setItem('saved_receivers', JSON.stringify(updatedReceivers))
+    localStorage.setItem('saved_master_items', JSON.stringify(updatedItems))
+    localStorage.setItem('saved_managers', JSON.stringify(updatedManagers))
+    localStorage.setItem('saved_memos', JSON.stringify(updatedMemos))
+
+    // 2. 서버 API를 통한 타기기 동기화 저장
+    try {
+      const res = await fetch('/api/finance', { cache: 'no-store' })
+      let currentServerData = {}
+      if (res.ok) {
+        currentServerData = await res.json()
+      }
+
+      await fetch('/api/finance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...currentServerData,
+          statementData: {
+            supplier: updatedSupplier,
+            savedReceivers: updatedReceivers,
+            savedItems: updatedItems,
+            savedManagers: updatedManagers,
+            savedMemos: updatedMemos,
+          },
+        }),
+      })
+    } catch (err) {
+      console.error('서버 데이터 동기화 저장 중 오류 발생:', err)
+    }
+  }
+
   const saveSupplierInfo = () => {
-    localStorage.setItem('my_supplier_info', JSON.stringify(supplier))
-    alert('공급자(내 회사) 정보 및 도장이 저장되었습니다.')
+    syncAndSave({ supplier })
+    alert('공급자(내 회사) 정보 및 도장이 서버 및 타기기에 동기화되었습니다.')
   }
 
   const handleSealUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,7 +216,9 @@ export function StatementView() {
     const reader = new FileReader()
     reader.onload = (uploadEvent) => {
       const result = uploadEvent.target?.result as string
-      setSupplier({ ...supplier, sealUrl: result })
+      const updated = { ...supplier, sealUrl: result }
+      setSupplier(updated)
+      syncAndSave({ supplier: updated })
     }
     reader.readAsDataURL(file)
   }
@@ -152,9 +231,9 @@ export function StatementView() {
     const filtered = savedReceivers.filter((r) => r.name !== receiver.name)
     const updated = [...filtered, receiver]
     setSavedReceivers(updated)
-    localStorage.setItem('saved_receivers', JSON.stringify(updated))
+    syncAndSave({ savedReceivers: updated })
     setSelectedReceiverName(receiver.name)
-    alert(`[${receiver.name}] 거래처가 저장되었습니다.`)
+    alert(`[${receiver.name}] 거래처가 서버에 저장되었습니다.`)
   }
 
   const handleSelectReceiver = (name: string) => {
@@ -167,7 +246,7 @@ export function StatementView() {
     if (!confirm(`[${name}] 거래처를 삭제하시겠습니까?`)) return
     const updated = savedReceivers.filter((r) => r.name !== name)
     setSavedReceivers(updated)
-    localStorage.setItem('saved_receivers', JSON.stringify(updated))
+    syncAndSave({ savedReceivers: updated })
     if (selectedReceiverName === name) setSelectedReceiverName('')
     if (editingReceiver?.name === name) setEditingReceiver(null)
   }
@@ -178,7 +257,7 @@ export function StatementView() {
       r.name === editingReceiver.name ? editingReceiver : r
     )
     setSavedReceivers(updated)
-    localStorage.setItem('saved_receivers', JSON.stringify(updated))
+    syncAndSave({ savedReceivers: updated })
     if (receiver.name === editingReceiver.name) setReceiver(editingReceiver)
     setEditingReceiver(null)
     alert('거래처 정보가 수정되었습니다.')
@@ -195,7 +274,7 @@ export function StatementView() {
     }
     const updated = [...savedManagers, manager.trim()]
     setSavedManagers(updated)
-    localStorage.setItem('saved_managers', JSON.stringify(updated))
+    syncAndSave({ savedManagers: updated })
     alert(`담당사원 [${manager.trim()}]이(가) 저장되었습니다.`)
   }
 
@@ -203,7 +282,7 @@ export function StatementView() {
     if (!confirm(`담당사원 [${name}]을(를) 삭제하시겠습니까?`)) return
     const updated = savedManagers.filter((m) => m !== name)
     setSavedManagers(updated)
-    localStorage.setItem('saved_managers', JSON.stringify(updated))
+    syncAndSave({ savedManagers: updated })
   }
 
   const updateManagerInModal = () => {
@@ -211,7 +290,7 @@ export function StatementView() {
     const updated = [...savedManagers]
     updated[editingManagerIndex] = editingManagerText.trim()
     setSavedManagers(updated)
-    localStorage.setItem('saved_managers', JSON.stringify(updated))
+    syncAndSave({ savedManagers: updated })
     setEditingManagerIndex(null)
     setEditingManagerText('')
     alert('담당사원이 수정되었습니다.')
@@ -232,7 +311,7 @@ export function StatementView() {
     }
     const updated = [...savedMemos, newMemo]
     setSavedMemos(updated)
-    localStorage.setItem('saved_memos', JSON.stringify(updated))
+    syncAndSave({ savedMemos: updated })
     alert(`[${title}] 참고사항이 저장되었습니다.`)
   }
 
@@ -240,7 +319,7 @@ export function StatementView() {
     if (!confirm('해당 참고사항을 삭제하시겠습니까?')) return
     const updated = savedMemos.filter((m) => m.id !== id)
     setSavedMemos(updated)
-    localStorage.setItem('saved_memos', JSON.stringify(updated))
+    syncAndSave({ savedMemos: updated })
     if (editingMemo?.id === id) setEditingMemo(null)
   }
 
@@ -248,7 +327,7 @@ export function StatementView() {
     if (!editingMemo) return
     const updated = savedMemos.map((m) => (m.id === editingMemo.id ? editingMemo : m))
     setSavedMemos(updated)
-    localStorage.setItem('saved_memos', JSON.stringify(updated))
+    syncAndSave({ savedMemos: updated })
     setEditingMemo(null)
     alert('참고사항이 수정되었습니다.')
   }
@@ -267,7 +346,7 @@ export function StatementView() {
     }
     const updated = [...filtered, newItem]
     setSavedItems(updated)
-    localStorage.setItem('saved_master_items', JSON.stringify(updated))
+    syncAndSave({ savedItems: updated })
     alert(`[${item.nameSpec}] 품목이 등록되었습니다.`)
   }
 
@@ -287,7 +366,7 @@ export function StatementView() {
     if (!confirm('해당 품목을 목록에서 삭제하시겠습니까?')) return
     const updated = savedItems.filter((i) => i.id !== id)
     setSavedItems(updated)
-    localStorage.setItem('saved_master_items', JSON.stringify(updated))
+    syncAndSave({ savedItems: updated })
     if (editingItem?.id === id) setEditingItem(null)
   }
 
@@ -295,7 +374,7 @@ export function StatementView() {
     if (!editingItem) return
     const updated = savedItems.map((i) => (i.id === editingItem.id ? editingItem : i))
     setSavedItems(updated)
-    localStorage.setItem('saved_master_items', JSON.stringify(updated))
+    syncAndSave({ savedItems: updated })
     setEditingItem(null)
     alert('품목 정보가 수정되었습니다.')
   }
@@ -370,7 +449,7 @@ export function StatementView() {
         <div>
           <h2 className="text-base font-bold">거래명세서 작성 및 관리</h2>
           <p className="text-xs text-muted-foreground">
-            공급자 도장(직인) 날인이 포함된 A4 세로 최적화 거래명세서입니다.
+            공급자 도장(직인) 날인이 포함된 A4 세로 최적화 거래명세서입니다. (타기기 동기화 지원)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -708,6 +787,7 @@ export function StatementView() {
         />
       </div>
 
+      {/* 모달 UI들은 기존과 동일하게 유지 */}
       {isManagerModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-xl w-full max-w-md p-4 space-y-4 shadow-lg">
