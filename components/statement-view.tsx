@@ -39,9 +39,7 @@ type SavedMemo = {
 }
 
 export function StatementView() {
-  // 타기기/브라우저 동기화를 위해 useFinance 또는 서버 API 연동 활용 가능
-  // 여기서는 다른 탭들과 동일하게 서버/전역 상태 또는 확장된 스토리지를 활용하도록 구성합니다.
-  const { clients } = useFinance()
+  const { clients, isLocked } = useFinance()
 
   const [tradeDate, setTradeDate] = useState(() => {
     const today = new Date()
@@ -102,20 +100,19 @@ export function StatementView() {
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 서버 API 및 타기기 동기화 로직 연동 (기존 /api/finance 활용 확장 또는 동기화)
+  // 서버 API로부터 데이터를 불러와 상태에 반영 (타기기 동기화)
   useEffect(() => {
     const fetchStatementData = async () => {
       try {
         const res = await fetch('/api/finance', { cache: 'no-store' })
         if (res.ok) {
           const data = await res.json()
-          // 서버에 저장된 확장 데이터가 있다면 우선 반영, 없으면 localStorage 폴백
-          if (data && data.statementData) {
-            if (data.statementData.supplier) setSupplier(data.statementData.supplier)
-            if (data.statementData.savedReceivers) setSavedReceivers(data.statementData.savedReceivers)
-            if (data.statementData.savedItems) setSavedItems(data.statementData.savedItems)
-            if (data.statementData.savedManagers) setSavedManagers(data.statementData.savedManagers)
-            if (data.statementData.savedMemos) setSavedMemos(data.statementData.savedMemos)
+          if (data) {
+            if (data.supplier) setSupplier(data.supplier)
+            if (data.savedReceivers) setSavedReceivers(data.savedReceivers)
+            if (data.savedItems) setSavedItems(data.savedItems)
+            if (data.savedManagers) setSavedManagers(data.savedManagers)
+            if (data.savedMemos) setSavedMemos(data.savedMemos)
             return
           }
         }
@@ -123,7 +120,7 @@ export function StatementView() {
         console.error('거래명세서 서버 동기화 실패, 로컬 데이터 사용:', err)
       }
 
-      // Fallback to localStorage if server data isn't structured for statements yet
+      // 서버 연결 실패 시 로컬스토리지 폴백
       const loadedSupplier = localStorage.getItem('my_supplier_info')
       if (loadedSupplier) {
         try { 
@@ -157,7 +154,7 @@ export function StatementView() {
     fetchStatementData()
   }, [])
 
-  // 변경된 데이터를 서버와 로컬스토리지에 동시 동기화하는 함수
+  // 데이터를 서버와 로컬스토리지에 안전하게 동기화 저장하는 함수
   const syncAndSave = async (newData: {
     supplier?: CompanyInfo
     savedReceivers?: CompanyInfo[]
@@ -171,14 +168,14 @@ export function StatementView() {
     const updatedManagers = newData.savedManagers || savedManagers
     const updatedMemos = newData.savedMemos || savedMemos
 
-    // 1. LocalStorage 저장 (오프라인 및 즉시 반영용)
+    // 1. 로컬스토리지 저장
     localStorage.setItem('my_supplier_info', JSON.stringify(updatedSupplier))
     localStorage.setItem('saved_receivers', JSON.stringify(updatedReceivers))
     localStorage.setItem('saved_master_items', JSON.stringify(updatedItems))
     localStorage.setItem('saved_managers', JSON.stringify(updatedManagers))
     localStorage.setItem('saved_memos', JSON.stringify(updatedMemos))
 
-    // 2. 서버 API를 통한 타기기 동기화 저장
+    // 2. 서버 API로 기존 장부 데이터와 함께 통합 저장 (다른 데이터 유실 방지)
     try {
       const res = await fetch('/api/finance', { cache: 'no-store' })
       let currentServerData = {}
@@ -191,13 +188,11 @@ export function StatementView() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...currentServerData,
-          statementData: {
-            supplier: updatedSupplier,
-            savedReceivers: updatedReceivers,
-            savedItems: updatedItems,
-            savedManagers: updatedManagers,
-            savedMemos: updatedMemos,
-          },
+          supplier: updatedSupplier,
+          savedReceivers: updatedReceivers,
+          savedItems: updatedItems,
+          savedManagers: updatedManagers,
+          savedMemos: updatedMemos,
         }),
       })
     } catch (err) {
@@ -206,11 +201,13 @@ export function StatementView() {
   }
 
   const saveSupplierInfo = () => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     syncAndSave({ supplier })
-    alert('공급자(내 회사) 정보 및 도장이 서버 및 타기기에 동기화되었습니다.')
+    alert('공급자(내 회사) 정보 및 도장이 서버에 안전하게 동기화되었습니다.')
   }
 
   const handleSealUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
@@ -224,6 +221,7 @@ export function StatementView() {
   }
 
   const saveCurrentReceiver = () => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!receiver.name) {
       alert('거래처 상호명을 입력해주세요.')
       return
@@ -243,6 +241,7 @@ export function StatementView() {
   }
 
   const deleteReceiver = (name: string) => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!confirm(`[${name}] 거래처를 삭제하시겠습니까?`)) return
     const updated = savedReceivers.filter((r) => r.name !== name)
     setSavedReceivers(updated)
@@ -252,6 +251,7 @@ export function StatementView() {
   }
 
   const updateReceiverInModal = () => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!editingReceiver) return
     const updated = savedReceivers.map((r) =>
       r.name === editingReceiver.name ? editingReceiver : r
@@ -264,6 +264,7 @@ export function StatementView() {
   }
 
   const saveCurrentManager = () => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!manager.trim()) {
       alert('담당사원 이름을 입력해주세요.')
       return
@@ -279,6 +280,7 @@ export function StatementView() {
   }
 
   const deleteManager = (name: string) => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!confirm(`담당사원 [${name}]을(를) 삭제하시겠습니까?`)) return
     const updated = savedManagers.filter((m) => m !== name)
     setSavedManagers(updated)
@@ -286,6 +288,7 @@ export function StatementView() {
   }
 
   const updateManagerInModal = () => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (editingManagerIndex === null || !editingManagerText.trim()) return
     const updated = [...savedManagers]
     updated[editingManagerIndex] = editingManagerText.trim()
@@ -297,6 +300,7 @@ export function StatementView() {
   }
 
   const saveCurrentMemo = () => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!memo.trim()) {
       alert('참고사항 내용을 입력해주세요.')
       return
@@ -316,6 +320,7 @@ export function StatementView() {
   }
 
   const deleteMemo = (id: string) => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!confirm('해당 참고사항을 삭제하시겠습니까?')) return
     const updated = savedMemos.filter((m) => m.id !== id)
     setSavedMemos(updated)
@@ -324,6 +329,7 @@ export function StatementView() {
   }
 
   const updateMemoInModal = () => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!editingMemo) return
     const updated = savedMemos.map((m) => (m.id === editingMemo.id ? editingMemo : m))
     setSavedMemos(updated)
@@ -333,6 +339,7 @@ export function StatementView() {
   }
 
   const saveToItemMaster = (item: ItemRow) => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!item.nameSpec) {
       alert('품명-규격을 입력해주세요.')
       return
@@ -363,6 +370,7 @@ export function StatementView() {
   }
 
   const deleteMasterItem = (id: string) => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!confirm('해당 품목을 목록에서 삭제하시겠습니까?')) return
     const updated = savedItems.filter((i) => i.id !== id)
     setSavedItems(updated)
@@ -371,6 +379,7 @@ export function StatementView() {
   }
 
   const updateMasterItemInModal = () => {
+    if (isLocked) return alert('잠금 상태입니다. 편집 모드로 전환해주세요.')
     if (!editingItem) return
     const updated = savedItems.map((i) => (i.id === editingItem.id ? editingItem : i))
     setSavedItems(updated)
@@ -449,7 +458,7 @@ export function StatementView() {
         <div>
           <h2 className="text-base font-bold">거래명세서 작성 및 관리</h2>
           <p className="text-xs text-muted-foreground">
-            공급자 도장(직인) 날인이 포함된 A4 세로 최적화 거래명세서입니다. (타기기 동기화 지원)
+            공급자 도장(직인) 날인이 포함된 A4 세로 최적화 거래명세서입니다. (서버 타기기 동기화 완료)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -787,7 +796,6 @@ export function StatementView() {
         />
       </div>
 
-      {/* 모달 UI들은 기존과 동일하게 유지 */}
       {isManagerModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card border rounded-xl w-full max-w-md p-4 space-y-4 shadow-lg">
